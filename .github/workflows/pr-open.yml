@@ -50,30 +50,19 @@ jobs:
     uses: ./.github/workflows/.tests.yml
     with:
       tag: ${{ github.event.number || 'latest' }} 
-  resume-resources-dev:
-    name: Resume Resources Dev
+ 
+  deploy-to-tools:
+    name: Deploy to Tools
     if: (github.event_name == 'workflow_dispatch')
     concurrency:
-      group: rrd-${{ github.event.number || 'latest' }}
+      group: deploy-tools-${{ github.event.number || 'latest' }}
       cancel-in-progress: false
-    needs: [builds]
-    uses: ./.github/workflows/resume-resources.yml
-    with:
-      app_env: dev
-    secrets: inherit
-  deploy-to-dev:
-    name: Deploy to Dev
-    if: (github.event_name == 'workflow_dispatch')
-    concurrency:
-      group: deploy-dev-${{ github.event.number || 'latest' }}
-      cancel-in-progress: false
-    needs: [resume-resources-dev]
     uses: ./.github/workflows/.deploy_stack.yml
     with:
-      environment_name: dev
+      environment_name: tools
       command: apply
       tag: manual
-      app_env: dev
+      app_env: tools
     secrets: inherit
   results:
     name: PR Results

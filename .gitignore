@@ -367,5 +367,12 @@ pyrightconfig.json
 *.pub
 **/node_modules
 **/dist
-# nested terragrunt-cache
-**/.terragrunt-cache/**
+# terraform
+**/terraform.tfstate
+**/terraform.tfstate.backup
+# terraform plan output
+**/terraform.plan
+# terraform cache
+*.terraform
+*.terraform.lock.hcl
+**/.terragrunt-cache

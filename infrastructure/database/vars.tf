@@ -1,48 +1,105 @@
-variable "target_env" {
-  description = "AWS workload account env"
+variable "app_name" {
+  description = "Name of the application"
   type        = string
 }
 
-variable "db_cluster_name" {
-  description = "Name for the database cluster -- must be unique"
+variable "app_env" {
+  description = "Application environment (dev, test, prod)"
   type        = string
-  
 }
 
-variable "db_master_username" {
-  description = "The username for the DB master user"
+variable "location" {
+  description = "Azure region for resources"
   type        = string
-  default     = "sysadmin"
-  sensitive   = true
+  default     = "Canada Central"
 }
 
-variable "db_database_name" {
-  description = "The name of the database"
+variable "resource_group_name" {
+  description = "Name of the resource group"
   type        = string
-  default     = "app"
 }
+
+variable "vnet_name" {
+  description = "Name of the existing virtual network"
+  type        = string
+}
+
+variable "vnet_resource_group_name" {
+  description = "Resource group name where the virtual network exists"
+  type        = string
+}
+
+variable "database_subnet_name" {
+  description = "Name of the subnet for the database"
+  type        = string
+}
+
+variable "postgresql_admin_username" {
+  description = "Administrator username for PostgreSQL server"
+  type        = string
+  default     = "pgadmin"
+}
+
+variable "postgresql_sku_name" {
+  description = "SKU name for PostgreSQL Flexible Server"
+  type        = string
+  default     = "GP_Standard_D2s_v3"
+}
+
+variable "postgresql_storage_mb" {
+  description = "Storage in MB for PostgreSQL server"
+  type        = number
+  default     = 32768
+}
+
 variable "backup_retention_period" {
-  description = "The number of days to retain automated backups"
+  description = "Backup retention period in days"
   type        = number
   default     = 7
 }
+
+variable "geo_redundant_backup_enabled" {
+  description = "Enable geo-redundant backup"
+  type        = bool
+  default     = false
+}
+
 variable "ha_enabled" {
-  description = "Whether to enable high availability mode of Aurora RDS cluster by adding a replica."
+  description = "Enable high availability"
+  type        = bool
+  default     = false
+}
+
+variable "standby_availability_zone" {
+  description = "Availability zone for standby replica"
+  type        = string
+  default     = "2"
+}
+
+variable "auto_grow_enabled" {
+  description = "Enable auto-grow for storage"
   type        = bool
   default     = true
 }
-variable "app_env" {
-  description = "The environment for the app, since multiple instances can be deployed to same dev environment of AWS, this represents whether it is PR or dev or test"
+
+variable "database_name" {
+  description = "Name of the database to create"
   type        = string
-}
-variable "min_capacity" {
-  description = "Minimum capacity for Aurora Serverless v2"
-  type        = number
-  default     = 0.5
+  default     = "app"
 }
 
-variable "max_capacity" {
-  description = "Maximum capacity for Aurora Serverless v2"
-  type        = number
-  default     = 1.0
+variable "subscription_id" {
+  description = "Azure subscription ID"
+  type        = string
+}
+
+variable "tenant_id" {
+  description = "Azure tenant ID"
+  type        = string
+}
+
+variable "centralized_dns_resource_group_name" {
+  description = "Resource group name where centralized private DNS zones are managed in Azure Landing Zone"
+  type        = string
+  default     = "rg-dns-central"
 }

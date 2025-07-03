@@ -1,14 +1,5 @@
-variable "target_env" {
-  description = "AWS workload account env"
-  type        = string
-}
-variable "app_env" {
-  description = "The environment for the app, since multiple instances can be deployed to same dev environment of AWS, this represents whether it is PR or dev or test"
-  type        = string
-}
-
 variable "app_name" {
-  description  = " The APP name with environment (app_env)"
+  description = "Name of the application"
   type        = string
   validation {
     condition     = lower(var.app_name) == var.app_name
@@ -16,7 +7,54 @@ variable "app_name" {
   }
 }
 
-variable "aws_region" {
-  type = string
-  default = "ca-central-1"
+variable "app_env" {
+  description = "Application environment (dev, test, prod)"
+  type        = string
+}
+
+variable "location" {
+  description = "Azure region for resources"
+  type        = string
+  default     = "Canada Central"
+}
+
+variable "resource_group_name" {
+  description = "Name of the resource group"
+  type        = string
+}
+
+variable "vnet_name" {
+  description = "Name of the existing virtual network"
+  type        = string
+}
+
+variable "vnet_resource_group_name" {
+  description = "Resource group name where the virtual network exists"
+  type        = string
+}
+
+variable "private_endpoints_subnet_name" {
+  description = "Name of the subnet for private endpoints"
+  type        = string
+}
+
+variable "container_app_fqdn" {
+  description = "FQDN of the Container App API"
+  type        = string
+}
+
+variable "subscription_id" {
+  description = "Azure subscription ID"
+  type        = string
+}
+
+variable "tenant_id" {
+  description = "Azure tenant ID"
+  type        = string
+}
+
+variable "centralized_dns_resource_group_name" {
+  description = "Resource group name where centralized private DNS zones are managed in Azure Landing Zone"
+  type        = string
+  default     = "rg-dns-central"
 }

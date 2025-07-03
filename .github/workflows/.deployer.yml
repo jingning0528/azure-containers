@@ -92,6 +92,7 @@ jobs:
           azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
           vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }} 
+          vnet_name: ${{ secrets.VNET_NAME }}
           flyway_image: ${{ steps.image-tags.outputs.flyway-image }}
           api_image: ${{ steps.image-tags.outputs.api-image }}
           app_env: ${{inputs.app_env}}

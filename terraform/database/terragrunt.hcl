@@ -39,7 +39,7 @@ generate "tfvars" {
   if_exists         = "overwrite"
   disable_signature = true
   contents          = <<-EOF
-    app_name = "${local.stack_prefix}-${local.rds_app_env}"
+    app_name = "${local.stack_prefix}-${local.app_env}"
     app_env = "${local.app_env}"
     subscription_id = "${local.azure_subscription_id}"
     tenant_id = "${local.azure_tenant_id}"
@@ -53,28 +53,28 @@ generate "provider" {
   path      = "provider.tf"
   if_exists = "overwrite"
   contents  = <<EOF
-terraform {
-  required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "~> 4.0"
+    terraform {
+      required_providers {
+        azurerm = {
+          source  = "hashicorp/azurerm"
+          version = "~> 4.0"
+        }
+        random = {
+          source  = "hashicorp/random"
+          version = "~> 3.0"
+        }
+      }
     }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.0"
-    }
-  }
-}
 
-provider "azurerm" {
-  features {
-    key_vault {
-      purge_soft_delete_on_destroy    = true
-      recover_soft_deleted_key_vaults = true
+    provider "azurerm" {
+      features {
+        key_vault {
+          purge_soft_delete_on_destroy    = true
+          recover_soft_deleted_key_vaults = true
+        }
+      }
+      subscription_id = "${local.azure_subscription_id}"
+      tenant_id      = "${local.azure_tenant_id}"
     }
-  }
-  subscription_id = "${local.azure_subscription_id}"
-  tenant_id      = "${local.azure_tenant_id}"
-}
 EOF
 }

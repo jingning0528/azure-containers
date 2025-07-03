@@ -29,6 +29,8 @@ generate "remote_state" {
         container_name        = "tfstate"
         key                   = "${local.statefile_key}"
         subscription_id       = "${local.azure_subscription_id}"
+        tenant_id             = "${local.azure_tenant_id}"
+        client_id             = "${local.azure_client_id}"
         use_oidc              = true
       }
     }

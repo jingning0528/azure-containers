@@ -12,9 +12,9 @@ generate "tools_tfvars" {
   if_exists         = "overwrite"
   disable_signature = true  
   contents          = <<-EOF
-  resource_group_name = "rg-quickstart-containers-tools"
-  location = "Canada Central"
-  target_env = "tools"
+    resource_group_name = "rg-quickstart-containers-tools"
+    location = "Canada Central"
+    target_env = "tools"
 EOF
 }
 

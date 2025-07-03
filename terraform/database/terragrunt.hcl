@@ -11,6 +11,7 @@ locals {
   target_env              = get_env("target_env") # this is the target environment, like dev, test, prod
   azure_subscription_id   = get_env("azure_subscription_id")
   azure_tenant_id         = get_env("azure_tenant_id")
+  azure_client_id         = get_env("azure_client_id") # this is the client ID of the Azure service principal
   app_env                 = get_env("app_env") # this is the environment for the app
   statefile_key           = "${local.stack_prefix}/${local.app_env}/database/postgresql/terraform.tfstate"
   container_name          = "tfstate"
@@ -75,6 +76,8 @@ generate "provider" {
       }
       subscription_id = "${local.azure_subscription_id}"
       tenant_id      = "${local.azure_tenant_id}"
+      use_oidc       = true
+      client_id     = "${local.azure_client_id}"
     }
 EOF
 }

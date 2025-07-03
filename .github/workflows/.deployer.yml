@@ -97,6 +97,7 @@ jobs:
           api_image: ${{ steps.image-tags.outputs.api-image }}
           app_env: ${{inputs.app_env}}
           stack_prefix: ${{ inputs.stack_prefix }}
+          azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
       run: |
           # Run terraform
           terragrunt run-all ${{inputs.command}} --terragrunt-non-interactive

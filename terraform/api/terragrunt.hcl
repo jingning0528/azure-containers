@@ -57,9 +57,7 @@ generate "tfvars" {
     api_image = "${local.api_image}"
     flyway_image = "${local.flyway_image}"
     postgresql_server_fqdn = "${get_env("postgresql_server_fqdn")}"
-    postgresql_admin_username = "${get_env("postgresql_admin_username")}"
-    postgresql_admin_password = "${get_env("postgresql_admin_password")}"
-    database_name = "${get_env("database_name", "app")}"
+    postgresql_admin_password = "${get_env("db_master_password")}"
     common_tags = {
       "Environment" = "${local.target_env}"
       "AppEnv"      = "${local.app_env}"

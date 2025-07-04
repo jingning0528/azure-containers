@@ -32,8 +32,14 @@ on:
         required: true
         type: string
         description: 'The stack prefix to use for the resources'
+      postgresql_server_fqdn:
+        description: 'FQDN of the PostgreSQL server'
+        type: string
+        required: false
+        default: 'example.database.azure.com' # makes the terraform plan work without a real server
+      
     outputs:
-      POSTGRESQL_SERVER_FQDN:
+      postgresql_server_fqdn:
         description: 'PostgreSQL server FQDN'
         value: ${{ jobs.infra.outputs.POSTGRESQL_SERVER_FQDN }}
       
@@ -96,6 +102,7 @@ jobs:
           azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
           db_master_password: ${{ secrets.DB_MASTER_PASSWORD }}
           repo_name: ${{ github.event.repository.name }}
+          postgresql_server_fqdn: ${{ inputs.postgresql_server_fqdn }}
       run: |
           # Run terraform
           terragrunt run-all ${{inputs.command}} --terragrunt-non-interactive

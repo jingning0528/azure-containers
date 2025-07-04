@@ -55,4 +55,5 @@ jobs:
       app_env: ${{ inputs.app_env }}
       working_directory: api
       stack_prefix: ${{ needs.stack-prefix.outputs.stack_prefix }}
+      postgresql_server_fqdn: ${{ needs.deploy-db.outputs.postgresql_server_fqdn }}
     secrets: inherit

@@ -464,6 +464,38 @@ function New-Subnet {
     
     if ($existingSubnet) {
         Write-ColorOutput "Subnet '$SubnetName' already exists" "Yellow"
+        
+        # Check if app subnet has required delegation for Container Apps
+        if ($SubnetType.ToLower() -eq "app") {
+            $delegations = $existingSubnet.delegations
+            $hasContainerAppsDelegation = $false
+            
+            if ($delegations -and $delegations.Count -gt 0) {
+                foreach ($delegation in $delegations) {
+                    if ($delegation.serviceName -eq "Microsoft.App/environments") {
+                        $hasContainerAppsDelegation = $true
+                        break
+                    }
+                }
+            }
+            
+            if (-not $hasContainerAppsDelegation) {
+                Write-ColorOutput "Adding missing Container Apps delegation to existing app subnet..." "Yellow"
+                try {
+                    # Add delegation to existing subnet
+                    az network vnet subnet update --vnet-name $VNetName --resource-group $ResourceGroup --name $SubnetName --delegations "Microsoft.App/environments" | Out-Null
+                    Write-ColorOutput " Added Container Apps delegation to existing subnet" "Green"
+                }
+                catch {
+                    Write-ColorOutput "Failed to add delegation to existing subnet '$SubnetName': $($_.Exception.Message)" "Red"
+                    return $false
+                }
+            }
+            else {
+                Write-ColorOutput "Subnet already has Container Apps delegation" "Green"
+            }
+        }
+        
         return $true
     }
     
@@ -481,9 +513,17 @@ function New-Subnet {
             return $false
         }
         
-        # Create subnet with NSG association
-        az network vnet subnet create --vnet-name $VNetName --resource-group $ResourceGroup --name $SubnetName --address-prefixes $AddressPrefix --network-security-group $nsgName | Out-Null
-        Write-ColorOutput " Created subnet: $SubnetName ($AddressPrefix) with NSG: $nsgName" "Green"
+        # Create subnet with NSG association and delegation if needed
+        if ($SubnetType.ToLower() -eq "app") {
+            # App subnet needs delegation for Azure Container Apps
+            az network vnet subnet create --vnet-name $VNetName --resource-group $ResourceGroup --name $SubnetName --address-prefixes $AddressPrefix --network-security-group $nsgName --delegations "Microsoft.App/environments" | Out-Null
+            Write-ColorOutput " Created subnet: $SubnetName ($AddressPrefix) with NSG: $nsgName and Container Apps delegation" "Green"
+        }
+        else {
+            # Other subnets don't need delegation
+            az network vnet subnet create --vnet-name $VNetName --resource-group $ResourceGroup --name $SubnetName --address-prefixes $AddressPrefix --network-security-group $nsgName | Out-Null
+            Write-ColorOutput " Created subnet: $SubnetName ($AddressPrefix) with NSG: $nsgName" "Green"
+        }
         return $true
     }
     catch {

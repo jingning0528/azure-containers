@@ -20,6 +20,12 @@ resource "azurerm_resource_group" "api" {
   name     = var.resource_group_name
   location = var.location
   tags     = var.common_tags
+  lifecycle {
+    ignore_changes = [ 
+      # Ignore tags to allow management via Azure Policy
+      tags
+    ]
+  }
 }
 
 # Container Apps Environment v2 with workload profiles and VNet integration
@@ -40,6 +46,12 @@ resource "azurerm_container_app_environment" "main" {
   }
 
   tags = var.common_tags
+  lifecycle {
+    ignore_changes = [ 
+      # Ignore tags to allow management via Azure Policy
+      tags
+    ]
+  }
 }
 
 # Log Analytics Workspace for Container Apps
@@ -51,6 +63,12 @@ resource "azurerm_log_analytics_workspace" "main" {
   retention_in_days   = 30
 
   tags = var.common_tags
+  lifecycle {
+    ignore_changes = [ 
+      # Ignore tags to allow management via Azure Policy
+      tags
+    ]
+  }
 }
 
 # User Assigned Managed Identity for Container Apps
@@ -74,6 +92,12 @@ resource "azurerm_container_registry" "main" {
   # Azure Landing Zone security requirements
   public_network_access_enabled = false
   tags = var.common_tags
+  lifecycle {
+    ignore_changes = [ 
+      # Ignore tags to allow management via Azure Policy
+      tags
+    ]
+  }
 }
 
 # Grant Container Apps environment access to Container Registry
@@ -182,6 +206,12 @@ resource "azurerm_container_app" "api" {
   }
 
   tags = var.common_tags
+  lifecycle {
+    ignore_changes = [ 
+      # Ignore tags to allow management via Azure Policy
+      tags
+    ]
+  }
 }
 
 # Container App Job for Database Migrations
@@ -248,4 +278,10 @@ resource "azurerm_container_app_job" "migrations" {
   }
 
   tags = var.common_tags
+  lifecycle {
+    ignore_changes = [ 
+      # Ignore tags to allow management via Azure Policy
+      tags
+    ]
+  }
 }

@@ -27,7 +27,7 @@ resource "azurerm_postgresql_flexible_server" "main" {
 
   sku_name   = var.postgresql_sku_name
   version    = "16"
-  
+  zone = "1"
   storage_mb                   = var.postgresql_storage_mb
   backup_retention_days        = var.backup_retention_period
   geo_redundant_backup_enabled = var.geo_redundant_backup_enabled
@@ -47,7 +47,6 @@ resource "azurerm_postgresql_flexible_server" "main" {
 
   # Auto-scaling configuration  
   auto_grow_enabled = var.auto_grow_enabled
-  
   tags = var.common_tags
   
   # Lifecycle block to handle automatic DNS zone associations by Azure Policy
@@ -86,7 +85,8 @@ resource "azurerm_private_endpoint" "postgresql" {
   # Lifecycle block to ignore DNS zone group changes managed by Azure Policy
   lifecycle {
     ignore_changes = [
-      private_dns_zone_group
+      private_dns_zone_group,
+      tags
     ]
   }
 }

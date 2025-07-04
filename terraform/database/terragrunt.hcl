@@ -48,7 +48,7 @@ generate "tfvars" {
     tenant_id = "${local.azure_tenant_id}"
     vnet_name = "${local.vnet_name}"
     vnet_resource_group_name = "${local.vnet_resource_group_name}"
-    database_subnet_name = "data-subnet"
+    db_master_password = "${get_env("db_master_password")}"
 EOF
 }
 

@@ -29,10 +29,6 @@ variable "vnet_resource_group_name" {
   type        = string
 }
 
-variable "database_subnet_name" {
-  description = "Name of the subnet for the database"
-  type        = string
-}
 
 variable "postgresql_admin_username" {
   description = "Administrator username for PostgreSQL server"
@@ -102,4 +98,13 @@ variable "centralized_dns_resource_group_name" {
   description = "Resource group name where centralized private DNS zones are managed in Azure Landing Zone"
   type        = string
   default     = "rg-dns-central"
+}
+variable "db_master_password" {
+  description = "Master password for the PostgreSQL server"
+  type        = string
+  sensitive   = true
+  validation {
+    condition     = length(var.db_master_password) >= 12
+    error_message = "The db_master_password must be at least 12 characters long."
+  }
 }

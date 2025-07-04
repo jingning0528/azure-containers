@@ -10,8 +10,8 @@
     Sets up GitHub OIDC authentication with Azure, creates required network subnets, and configures Terraform backend storage
 .DESCRIPTION
     This script automates the setup of OpenID Connect (OIDC) authentication between GitHub Actions and Azure,
-    creates data, app, and web subnets within a specified virtual network, and sets up a storage account
-    for Terraform state backend with proper configuration for GitHub Actions workflows.
+    creates private endpoints, app, and web subnets within a specified virtual network, and sets up a storage 
+    account for Terraform state backend with proper configuration for GitHub Actions workflows.
 .PARAMETER SubscriptionId
     Azure subscription ID (mandatory)
 .PARAMETER GitHubRepository
@@ -22,18 +22,12 @@
     Resource group containing the virtual network (mandatory)
 .PARAMETER VNetAddressSpace
     Address space for the virtual network in CIDR format (e.g., "10.0.0.0/16") (mandatory)
-.PARAMETER DataSubnetCidr
-    CIDR block for the data subnet (e.g., "10.0.1.0/24") (mandatory)
-.PARAMETER AppSubnetCidr
-    CIDR block for the app subnet (e.g., "10.0.2.0/24") (mandatory)
-.PARAMETER WebSubnetCidr
-    CIDR block for the web subnet (e.g., "10.0.3.0/24") (mandatory)
 .PARAMETER ApplicationName
     Name for the Azure AD Application (optional, defaults to repository name)
 .PARAMETER Environment
     Environment suffix for resources (optional, defaults to "dev")
 .EXAMPLE
-    .\initial-azure-setup.ps1 -SubscriptionId "12345678-1234-1234-1234-123456789abc" -GitHubRepository "myorg/myrepo" -VNetName "my-vnet" -VNetResourceGroup "network-rg" -VNetAddressSpace "10.0.0.0/16" -DataSubnetCidr "10.0.1.0/24" -AppSubnetCidr "10.0.2.0/24" -WebSubnetCidr "10.0.3.0/24"
+    .\initial-azure-setup.ps1 -SubscriptionId "12345678-1234-1234-1234-123456789abc" -GitHubRepository "myorg/myrepo" -VNetName "my-vnet" -VNetResourceGroup "network-rg" -VNetAddressSpace "10.0.0.0/16"
 #>
 
 [CmdletBinding()]
@@ -52,15 +46,6 @@ param(
     
     [Parameter(Mandatory = $true)]
     [string]$VNetAddressSpace,
-    
-    [Parameter(Mandatory = $true)]
-    [string]$DataSubnetCidr,
-    
-    [Parameter(Mandatory = $true)]
-    [string]$AppSubnetCidr,
-    
-    [Parameter(Mandatory = $true)]
-    [string]$WebSubnetCidr,
     
     [Parameter(Mandatory = $false)]
     [string]$ApplicationName = "",
@@ -242,6 +227,35 @@ function Add-FederatedCredentials {
             }
         }
     }
+    # Create federated credential for environment deployments
+    $envCredentialName = "github-environment"
+    $envExists = $existingCredentials | Where-Object { $_.name -eq $envCredentialName }
+    
+    if ($envExists) {
+        Write-ColorOutput "Federated credential for environments already exists" "Yellow"
+    }
+    else {
+        $envCredential = @{
+            name = $envCredentialName
+            issuer = "https://token.actions.githubusercontent.com"
+            subject = "repo:$GitHubRepo`:environment:*"
+            audiences = @("api://AzureADTokenExchange")
+        } | ConvertTo-Json -Depth 3
+        
+        $tempEnvFile = $null
+        try {
+            # Write JSON to temp file to avoid PowerShell parsing issues
+            $tempEnvFile = [System.IO.Path]::GetTempFileName()
+            $envCredential | Out-File -FilePath $tempEnvFile -Encoding UTF8
+            az ad app federated-credential create --id $AppId --parameters "@$tempEnvFile" | Out-Null
+            Write-ColorOutput " Added federated credential for GitHub environments" "Green"
+        }
+        finally {
+            if ($tempEnvFile -and (Test-Path $tempEnvFile)) {
+                Remove-Item $tempEnvFile -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
 }
 
 # Function to assign Azure roles
@@ -336,20 +350,12 @@ function New-NetworkSecurityGroup {
         $existingRules = az network nsg rule list --nsg-name $NsgName --resource-group $ResourceGroup --output json 2>$null | ConvertFrom-Json
         
         switch ($SubnetType.ToLower()) {
-            "data" {
-                if ([string]::IsNullOrEmpty($AppSubnetCidr)) {
-                    throw "AppSubnetCidr is required for data subnet NSG rules"
-                }
-                $inboundRuleExists = $existingRules | Where-Object { $_.name -eq "AllowPostgreSQLFromApp" }
-                $outboundRuleExists = $existingRules | Where-Object { $_.name -eq "AllowPostgreSQLToApp" }
+            "privateendpoints" {
+                $inboundAppRuleExists = $existingRules | Where-Object { $_.name -eq "AllowInboundFromApp" }
                 
-                if (-not $inboundRuleExists) {
-                    az network nsg rule create --nsg-name $NsgName --resource-group $ResourceGroup --name "AllowPostgreSQLFromApp" --priority 100 --source-address-prefixes $AppSubnetCidr --destination-port-ranges 5432 --access Allow --protocol Tcp --direction Inbound | Out-Null
-                    Write-ColorOutput "  Added missing PostgreSQL inbound rule" "Green"
-                }
-                if (-not $outboundRuleExists) {
-                    az network nsg rule create --nsg-name $NsgName --resource-group $ResourceGroup --name "AllowPostgreSQLToApp" --priority 101 --destination-address-prefixes $AppSubnetCidr --source-port-ranges "*" --destination-port-ranges 5432 --access Allow --protocol Tcp --direction Outbound | Out-Null
-                    Write-ColorOutput "  Added missing PostgreSQL outbound rule" "Green"
+                if (-not $inboundAppRuleExists -and -not [string]::IsNullOrEmpty($AppSubnetCidr)) {
+                    az network nsg rule create --nsg-name $NsgName --resource-group $ResourceGroup --name "AllowInboundFromApp" --priority 100 --source-address-prefixes $AppSubnetCidr --destination-port-ranges "*" --access Allow --protocol "*" --direction Inbound | Out-Null
+                    Write-ColorOutput "  Added inbound rule from app subnet" "Green"
                 }
             }
             "app" {
@@ -372,8 +378,8 @@ function New-NetworkSecurityGroup {
                 $httpRuleExists = $existingRules | Where-Object { $_.name -eq "AllowHTTPFromInternet" }
                 
                 if (-not $httpRuleExists) {
-                    az network nsg rule create --nsg-name $NsgName --resource-group $ResourceGroup --name "AllowHTTPFromInternet" --priority 100 --source-address-prefixes "*" --destination-port-ranges 80 --access Allow --protocol Tcp --direction Inbound | Out-Null
-                    Write-ColorOutput "  Added missing HTTP rule" "Green"
+                    az network nsg rule create --nsg-name $NsgName --resource-group $ResourceGroup --name "AllowHTTPFromInternet" --priority 100 --source-address-prefixes "*" --destination-port-ranges "80,443" --access Allow --protocol Tcp --direction Inbound | Out-Null
+                    Write-ColorOutput "  Added missing HTTP/HTTPS rule" "Green"
                 }
             }
         }
@@ -388,14 +394,19 @@ function New-NetworkSecurityGroup {
         
         # Add security rules based on subnet type
         switch ($SubnetType.ToLower()) {
-            "data" {
-                if ([string]::IsNullOrEmpty($AppSubnetCidr)) {
-                    throw "AppSubnetCidr is required for data subnet NSG rules"
+            "privateendpoints" {
+                # Allow inbound and outbound traffic from both app and web subnets
+                if (-not [string]::IsNullOrEmpty($AppSubnetCidr)) {
+                    az network nsg rule create --nsg-name $NsgName --resource-group $ResourceGroup --name "AllowInboundFromApp" --priority 100 --source-address-prefixes $AppSubnetCidr --destination-port-ranges "*" --access Allow --protocol "*" --direction Inbound | Out-Null
+                    az network nsg rule create --nsg-name $NsgName --resource-group $ResourceGroup --name "AllowOutboundToApp" --priority 101 --destination-address-prefixes $AppSubnetCidr --source-port-ranges "*" --destination-port-ranges "*" --access Allow --protocol "*" --direction Outbound | Out-Null
+                    Write-ColorOutput "  Added inbound and outbound rules for app subnet" "Green"
                 }
-                # Allow PostgreSQL traffic from app subnet
-                az network nsg rule create --nsg-name $NsgName --resource-group $ResourceGroup --name "AllowPostgreSQLFromApp" --priority 100 --source-address-prefixes $AppSubnetCidr --destination-port-ranges 5432 --access Allow --protocol Tcp --direction Inbound | Out-Null
-                az network nsg rule create --nsg-name $NsgName --resource-group $ResourceGroup --name "AllowPostgreSQLToApp" --priority 101 --destination-address-prefixes $AppSubnetCidr --source-port-ranges "*" --destination-port-ranges 5432 --access Allow --protocol Tcp --direction Outbound | Out-Null
-                Write-ColorOutput "  Added PostgreSQL rules for data subnet" "Green"
+                if (-not [string]::IsNullOrEmpty($WebSubnetCidr)) {
+                    az network nsg rule create --nsg-name $NsgName --resource-group $ResourceGroup --name "AllowInboundFromWeb" --priority 102 --source-address-prefixes $WebSubnetCidr --destination-port-ranges "*" --access Allow --protocol "*" --direction Inbound | Out-Null
+                    az network nsg rule create --nsg-name $NsgName --resource-group $ResourceGroup --name "AllowOutboundToWeb" --priority 103 --destination-address-prefixes $WebSubnetCidr --source-port-ranges "*" --destination-port-ranges "*" --access Allow --protocol "*" --direction Outbound | Out-Null
+                    Write-ColorOutput "  Added inbound and outbound rules for web subnet" "Green"
+                }
+                Write-ColorOutput "  Created security rules for private endpoints subnet" "Green"
             }
             "app" {
                 if ([string]::IsNullOrEmpty($WebSubnetCidr)) {
@@ -407,9 +418,9 @@ function New-NetworkSecurityGroup {
                 Write-ColorOutput "  Added application rules for app subnet" "Green"
             }
             "web" {
-                # Allow HTTP traffic from internet
-                az network nsg rule create --nsg-name $NsgName --resource-group $ResourceGroup --name "AllowHTTPFromInternet" --priority 100 --source-address-prefixes "*" --destination-port-ranges "*" --access Allow --protocol Tcp --direction Inbound | Out-Null
-                Write-ColorOutput "  Added HTTP rules for web subnet" "Green"
+                # Allow HTTP/HTTPS traffic from internet on standard ports only
+                az network nsg rule create --nsg-name $NsgName --resource-group $ResourceGroup --name "AllowHTTPFromInternet" --priority 100 --source-address-prefixes "*" --destination-port-ranges "80,443" --access Allow --protocol Tcp --direction Inbound | Out-Null
+                Write-ColorOutput "  Added HTTP/HTTPS rules for web subnet" "Green"
             }
             default {
                 Write-ColorOutput "  No specific rules added for subnet type: $SubnetType" "Yellow"
@@ -664,6 +675,80 @@ function Show-TerraformBackendConfig {
     Write-ColorOutput "======================================" "Cyan"
 }
 
+# Function to calculate subnet CIDRs based on VNet address space
+function Get-SubnetCidrs {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$VNetAddressSpace
+    )
+    
+    Write-ColorOutput "Calculating subnet CIDRs from VNet address space: $VNetAddressSpace" "Cyan"
+    
+    if (-not (Test-CidrBlock -Cidr $VNetAddressSpace)) {
+        Write-ColorOutput "Invalid VNet address space format: $VNetAddressSpace" "Red"
+        exit 1
+    }
+    
+    # Parse the address space
+    $parts = $VNetAddressSpace -split '/'
+    $ipBase = $parts[0]
+    $vnetPrefix = [int]$parts[1]
+    
+    # Parse the IP octets
+    $octets = $ipBase -split '\.'
+    
+    # Handle different VNet sizes
+    if ($vnetPrefix -eq 24) {
+        # For /24 VNet, create subnets with app getting most space, private endpoints medium, web least
+        Write-ColorOutput "VNet is /24 - creating subnets with optimized sizing (app: /25, private endpoints: /27, web: /28)" "Yellow"
+        
+        $baseIp = "$($octets[0]).$($octets[1]).$($octets[2])"
+        $appSubnetCidr = "$baseIp.0/25"                 # .0 to .127 (128 addresses)
+        $privateEndpointsSubnetCidr = "$baseIp.128/27"  # .128 to .159 (32 addresses)
+        $webSubnetCidr = "$baseIp.160/28"               # .160 to .175 (16 addresses)
+        
+    } elseif ($vnetPrefix -le 22) {
+        # For /22 or larger VNet, create three /24 subnets
+        Write-ColorOutput "VNet is /$vnetPrefix - creating three /24 subnets" "Yellow"
+        
+        # Calculate subnet base addresses by incrementing the third octet
+        $privateEndpointsSubnetBase = "$($octets[0]).$($octets[1]).$($octets[2]).0"
+        $appSubnetBase = "$($octets[0]).$($octets[1]).$([int]$octets[2] + 1).0"
+        $webSubnetBase = "$($octets[0]).$($octets[1]).$([int]$octets[2] + 2).0"
+        
+        $privateEndpointsSubnetCidr = "$privateEndpointsSubnetBase/24"
+        $appSubnetCidr = "$appSubnetBase/24"
+        $webSubnetCidr = "$webSubnetBase/24"
+        
+    } elseif ($vnetPrefix -eq 23) {
+        # For /23 VNet, create subnets within the two available /24 blocks
+        Write-ColorOutput "VNet is /23 - creating mixed subnet sizes" "Yellow"
+        
+        $baseIp = "$($octets[0]).$($octets[1]).$($octets[2])"
+        $privateEndpointsSubnetCidr = "$baseIp.0/25"     # .0 to .127
+        $appSubnetCidr = "$baseIp.128/25"                # .128 to .255
+        
+        # Use the next /24 block for web subnet
+        $nextOctet = [int]$octets[2] + 1
+        $webSubnetCidr = "$($octets[0]).$($octets[1]).$nextOctet.0/24"
+        
+    } else {
+        # VNet prefix is between 25-32, too small for three subnets
+        Write-ColorOutput "VNet address space too small (/$vnetPrefix). Needs to be at least a /24 to accommodate three subnets." "Red"
+        exit 1
+    }
+    
+    Write-ColorOutput " Calculated Private Endpoints Subnet CIDR: $privateEndpointsSubnetCidr" "Green"
+    Write-ColorOutput " Calculated App Subnet CIDR: $appSubnetCidr" "Green"
+    Write-ColorOutput " Calculated Web Subnet CIDR: $webSubnetCidr" "Green"
+    
+    return @{
+        PrivateEndpointsSubnetCidr = $privateEndpointsSubnetCidr
+        AppSubnetCidr = $appSubnetCidr
+        WebSubnetCidr = $webSubnetCidr
+    }
+}
+
 # Main execution
 try {
     Write-ColorOutput "Starting Azure Initial Setup..." "Cyan"
@@ -672,15 +757,6 @@ try {
     # Validate inputs
     if (-not (Test-CidrBlock $VNetAddressSpace)) {
         throw "Invalid VNet address space format: $VNetAddressSpace"
-    }
-    if (-not (Test-CidrBlock $DataSubnetCidr)) {
-        throw "Invalid data subnet CIDR format: $DataSubnetCidr"
-    }
-    if (-not (Test-CidrBlock $AppSubnetCidr)) {
-        throw "Invalid app subnet CIDR format: $AppSubnetCidr"
-    }
-    if (-not (Test-CidrBlock $WebSubnetCidr)) {
-        throw "Invalid web subnet CIDR format: $WebSubnetCidr"
     }
     
     # Set application name if not provided
@@ -715,20 +791,27 @@ try {
     
     # Create virtual network
     New-VirtualNetwork -VNetName $VNetName -ResourceGroup $VNetResourceGroup -AddressSpace $VNetAddressSpace
-      # Create subnets with NSGs
+    
+    # Calculate subnet CIDRs from VNet address space
+    $subnetCidrs = Get-SubnetCidrs -VNetAddressSpace $VNetAddressSpace
+    $privateEndpointsSubnetCidr = $subnetCidrs.PrivateEndpointsSubnetCidr
+    $appSubnetCidr = $subnetCidrs.AppSubnetCidr
+    $webSubnetCidr = $subnetCidrs.WebSubnetCidr
+    
+    # Create subnets with NSGs
     Write-ColorOutput "`nCreating subnets with Network Security Groups..." "Cyan"
     
-    # Create data subnet (requires app subnet CIDR for NSG rules)
-    $dataSubnetCreated = New-Subnet -VNetName $VNetName -ResourceGroup $VNetResourceGroup -SubnetName "data-subnet" -AddressPrefix $DataSubnetCidr -SubnetType "data" -AppSubnetCidr $AppSubnetCidr
+    # Create private endpoints subnet (for Azure PaaS services like PostgreSQL Flexible Server)
+    $privateEndpointsSubnetCreated = New-Subnet -VNetName $VNetName -ResourceGroup $VNetResourceGroup -SubnetName "privateendpoints-subnet" -AddressPrefix $privateEndpointsSubnetCidr -SubnetType "privateendpoints" -AppSubnetCidr $appSubnetCidr
 
     # Create app subnet (requires web subnet CIDR for NSG rules)
-    $appSubnetCreated = New-Subnet -VNetName $VNetName -ResourceGroup $VNetResourceGroup -SubnetName "app-subnet" -AddressPrefix $AppSubnetCidr -SubnetType "app" -WebSubnetCidr $WebSubnetCidr
+    $appSubnetCreated = New-Subnet -VNetName $VNetName -ResourceGroup $VNetResourceGroup -SubnetName "app-subnet" -AddressPrefix $appSubnetCidr -SubnetType "app" -WebSubnetCidr $webSubnetCidr
 
     # Create web subnet (only needs internet access)
-    $webSubnetCreated = New-Subnet -VNetName $VNetName -ResourceGroup $VNetResourceGroup -SubnetName "web-subnet" -AddressPrefix $WebSubnetCidr -SubnetType "web"
+    $webSubnetCreated = New-Subnet -VNetName $VNetName -ResourceGroup $VNetResourceGroup -SubnetName "web-subnet" -AddressPrefix $webSubnetCidr -SubnetType "web"
 
     # Check if all subnets were created successfully
-    if (-not ($dataSubnetCreated -and $appSubnetCreated -and $webSubnetCreated)) {
+    if (-not ($privateEndpointsSubnetCreated -and $appSubnetCreated -and $webSubnetCreated)) {
         Write-ColorOutput "One or more subnets failed to create. Exiting." "Red"
         exit 1
     }
@@ -780,7 +863,7 @@ try {
     }
     
     # Check subnets and their NSGs
-    $subnets = @("data-subnet", "app-subnet", "web-subnet")
+    $subnets = @("privateendpoints-subnet", "app-subnet", "web-subnet")
     foreach ($subnet in $subnets) {
         try {
             $subnetCheck = az network vnet subnet show --vnet-name $VNetName --resource-group $VNetResourceGroup --name $subnet --output json 2>$null

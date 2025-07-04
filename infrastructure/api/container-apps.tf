@@ -22,7 +22,7 @@ resource "azurerm_resource_group" "api" {
   tags     = var.common_tags
 }
 
-# Container Apps Environment with VNet integration
+# Container Apps Environment v2 with workload profiles and VNet integration
 resource "azurerm_container_app_environment" "main" {
   name                           = "${var.app_name}-containerapp"
   location                       = var.location
@@ -31,6 +31,13 @@ resource "azurerm_container_app_environment" "main" {
   internal_load_balancer_enabled = true
 
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+
+  # Workload profiles for v2 Container Apps Environment
+  # This allows /27 subnet size instead of /23 required by consumption plan
+  workload_profile {
+    name                  = "Consumption"
+    workload_profile_type = "Consumption"
+  }
 
   tags = var.common_tags
 }

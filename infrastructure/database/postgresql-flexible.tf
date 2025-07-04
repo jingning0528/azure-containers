@@ -36,6 +36,10 @@ resource "azurerm_postgresql_flexible_server" "main" {
   # Note: PostgreSQL Flexible Server uses delegated subnet integration
   # rather than traditional private endpoints
   delegated_subnet_id = data.azurerm_subnet.private_endpoints.id
+
+  # Not allowed to be public in Azure Landing Zone
+  # Public network access is disabled to comply with Azure Landing Zone security requirements
+  public_network_access_enabled = false
   
   # High availability configuration
   dynamic "high_availability" {

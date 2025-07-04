@@ -53,8 +53,7 @@ resource "azurerm_postgresql_flexible_server" "main" {
   lifecycle {
     ignore_changes = [
       # Ignore changes to private_dns_zone_id as it is managed by Azure Policy
-      private_dns_zone_id,
-      private_dns_zone_group
+      private_dns_zone_id
     ]
   }
 }

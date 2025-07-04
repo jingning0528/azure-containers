@@ -18,7 +18,7 @@ data "azurerm_subnet" "private_endpoints" {
 
 # PostgreSQL Flexible Server
 resource "azurerm_postgresql_flexible_server" "main" {
-  name                = "${var.app_name}-postgresql-${var.app_env}"
+  name                = "${var.app_name}"
   resource_group_name = azurerm_resource_group.main.name
   location            = var.location
 
@@ -69,13 +69,13 @@ resource "azurerm_postgresql_flexible_server_database" "main" {
 # Private Endpoint for PostgreSQL Flexible Server
 # Note: DNS zone association will be automatically managed by Azure Policy
 resource "azurerm_private_endpoint" "postgresql" {
-  name                = "${var.app_name}-postgresql-pe-${var.app_env}"
+  name                = "${var.app_name}-pe"
   location            = var.location
   resource_group_name = azurerm_resource_group.main.name
   subnet_id           = data.azurerm_subnet.private_endpoints.id
 
   private_service_connection {
-    name                           = "${var.app_name}-postgresql-psc-${var.app_env}"
+    name                           = "${var.app_name}-psc"
     private_connection_resource_id = azurerm_postgresql_flexible_server.main.id
     subresource_names              = ["postgresqlServer"]
     is_manual_connection           = false
@@ -96,17 +96,35 @@ resource "azurerm_private_endpoint" "postgresql" {
 # The Landing Zone automation will automatically associate the private endpoint 
 # with the appropriate managed DNS zone (privatelink.postgres.database.azure.com)
 
+# Time delay to ensure PostgreSQL server is fully ready before configuration changes
+resource "time_sleep" "wait_for_postgresql" {
+  depends_on = [
+    azurerm_postgresql_flexible_server.main,
+    azurerm_postgresql_flexible_server_database.main,
+    azurerm_private_endpoint.postgresql
+  ]
+  create_duration = "60s"
+}
+
 # PostgreSQL Configuration for performance
+# These configurations require the server to be fully operational
 resource "azurerm_postgresql_flexible_server_configuration" "shared_preload_libraries" {
   name      = "shared_preload_libraries"
   server_id = azurerm_postgresql_flexible_server.main.id
   value     = "pg_stat_statements"
+  
+  depends_on = [time_sleep.wait_for_postgresql]
 }
 
 resource "azurerm_postgresql_flexible_server_configuration" "log_statement" {
   name      = "log_statement"
   server_id = azurerm_postgresql_flexible_server.main.id
   value     = "all"
+  
+  depends_on = [
+    time_sleep.wait_for_postgresql,
+    azurerm_postgresql_flexible_server_configuration.shared_preload_libraries
+  ]
 }
 
 # Create the main resource group for all application resources

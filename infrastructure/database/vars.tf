@@ -93,12 +93,6 @@ variable "tenant_id" {
   description = "Azure tenant ID"
   type        = string
 }
-
-variable "centralized_dns_resource_group_name" {
-  description = "Resource group name where centralized private DNS zones are managed in Azure Landing Zone"
-  type        = string
-  default     = "rg-dns-central"
-}
 variable "db_master_password" {
   description = "Master password for the PostgreSQL server"
   type        = string

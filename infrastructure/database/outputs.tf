@@ -13,26 +13,6 @@ output "database_name" {
   value       = azurerm_postgresql_flexible_server_database.main.name
 }
 
-output "key_vault_id" {
-  description = "ID of the Key Vault"
-  value       = azurerm_key_vault.main.id
-}
-
-output "key_vault_name" {
-  description = "Name of the Key Vault"
-  value       = azurerm_key_vault.main.name
-}
-
-output "postgresql_admin_username_secret_name" {
-  description = "Name of the Key Vault secret containing PostgreSQL admin username"
-  value       = azurerm_key_vault_secret.postgresql_admin_username.name
-}
-
-output "postgresql_admin_password_secret_name" {
-  description = "Name of the Key Vault secret containing PostgreSQL admin password"
-  value       = azurerm_key_vault_secret.postgresql_admin_password.name
-}
-
 output "ha_enabled" {
   description = "Whether high availability is enabled"
   value       = var.ha_enabled
@@ -41,4 +21,28 @@ output "ha_enabled" {
 output "resource_group_name" {
   description = "Name of the created resource group"
   value       = azurerm_resource_group.main.name
+}
+
+output "postgresql_connection_string" {
+  description = "Connection string for PostgreSQL database (without credentials)"
+  value       = "postgresql://${azurerm_postgresql_flexible_server.main.fqdn}:5432/${azurerm_postgresql_flexible_server_database.main.name}"
+  sensitive   = false
+}
+
+output "postgresql_jdbc_connection_string" {
+  description = "JDBC Connection string for PostgreSQL database (without credentials)"
+  value       = "jdbc:postgresql://${azurerm_postgresql_flexible_server.main.fqdn}:5432/${azurerm_postgresql_flexible_server_database.main.name}?sslmode=require"
+  sensitive   = false
+}
+
+output "postgresql_admin_username" {
+  description = "Administrator username for PostgreSQL server"
+  value       = var.postgresql_admin_username
+  sensitive   = true
+}
+
+output "database_endpoint" {
+  description = "Full endpoint for the database including port"
+  value       = "${azurerm_postgresql_flexible_server.main.fqdn}:5432"
+  sensitive   = false
 }

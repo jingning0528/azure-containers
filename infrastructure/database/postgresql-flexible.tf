@@ -16,8 +16,6 @@ data "azurerm_subnet" "private_endpoints" {
 }
 
 
-
-
 # PostgreSQL Flexible Server
 resource "azurerm_postgresql_flexible_server" "main" {
   name                = "${var.app_name}-postgresql-${var.app_env}"
@@ -34,10 +32,11 @@ resource "azurerm_postgresql_flexible_server" "main" {
   backup_retention_days        = var.backup_retention_period
   geo_redundant_backup_enabled = var.geo_redundant_backup_enabled
 
-  # Private access configuration using private endpoints subnet
+  # Private network integration using delegated subnet
+  # Note: PostgreSQL Flexible Server uses delegated subnet integration
+  # rather than traditional private endpoints
   delegated_subnet_id = data.azurerm_subnet.private_endpoints.id
-  private_dns_zone_id = data.azurerm_private_dns_zone.postgresql.id
-
+  
   # High availability configuration
   dynamic "high_availability" {
     for_each = var.ha_enabled ? [1] : []
@@ -49,8 +48,15 @@ resource "azurerm_postgresql_flexible_server" "main" {
 
   # Auto-scaling configuration  
   auto_grow_enabled = var.auto_grow_enabled
-
-  depends_on = [data.azurerm_private_dns_zone.postgresql]
+  
+  # Lifecycle block to handle automatic DNS zone associations by Azure Policy
+  lifecycle {
+    ignore_changes = [
+      # Ignore changes to private_dns_zone_id as it is managed by Azure Policy
+      private_dns_zone_id,
+      private_dns_zone_group
+    ]
+  }
 }
 
 # Create database
@@ -60,6 +66,9 @@ resource "azurerm_postgresql_flexible_server_database" "main" {
   collation = "en_US.utf8"
   charset   = "utf8"
 }
+
+# Note: PostgreSQL Flexible Server uses delegated subnet integration
+# and does not require a separate private endpoint resource
 
 # PostgreSQL Configuration for performance
 resource "azurerm_postgresql_flexible_server_configuration" "shared_preload_libraries" {

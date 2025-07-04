@@ -52,7 +52,7 @@ generate "tfvars" {
     common_tags = {
       "Environment" = "${local.target_env}"
       "AppEnv"      = "${local.app_env}"
-      "AppName"     = "${local.stack_prefix}-postgres-${local.rds_app_env}"
+      "AppName"     = "${local.stack_prefix}-postgres-${local.app_env}"
       "RepoName"    = "${get_env("repo_name")}"
       "ManagedBy"   = "Terraform"
     }

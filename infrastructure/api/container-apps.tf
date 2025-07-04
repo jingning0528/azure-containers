@@ -195,7 +195,7 @@ resource "azurerm_container_app" "api" {
   }
 
   ingress {
-    allow_insecure_connections = true
+    allow_insecure_connections = false
     external_enabled          = false
     target_port               = 3000
 

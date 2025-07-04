@@ -49,6 +49,8 @@ resource "azurerm_postgresql_flexible_server" "main" {
   # Auto-scaling configuration  
   auto_grow_enabled = var.auto_grow_enabled
   
+  tags = var.common_tags
+  
   # Lifecycle block to handle automatic DNS zone associations by Azure Policy
   lifecycle {
     ignore_changes = [
@@ -86,4 +88,5 @@ resource "azurerm_postgresql_flexible_server_configuration" "log_statement" {
 resource "azurerm_resource_group" "main" {
   name     = var.resource_group_name
   location = var.location
+  tags     = var.common_tags
 }

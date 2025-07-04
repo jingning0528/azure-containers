@@ -102,3 +102,7 @@ variable "db_master_password" {
     error_message = "The db_master_password must be at least 12 characters long."
   }
 }
+variable "common_tags" {
+  description = "Common tags to apply to all resources"
+  type        = map(string)
+}

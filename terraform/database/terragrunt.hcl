@@ -42,13 +42,20 @@ generate "tfvars" {
   if_exists         = "overwrite"
   disable_signature = true
   contents          = <<-EOF
-    app_name = "${local.stack_prefix}-${local.app_env}"
+    app_name = "${local.stack_prefix}-postgres-${local.app_env}"
     app_env = "${local.app_env}"
     subscription_id = "${local.azure_subscription_id}"
     tenant_id = "${local.azure_tenant_id}"
     vnet_name = "${local.vnet_name}"
     vnet_resource_group_name = "${local.vnet_resource_group_name}"
     db_master_password = "${get_env("db_master_password")}"
+    common_tags = {
+      "Environment" = "${local.target_env}"
+      "AppEnv"      = "${local.app_env}"
+      "AppName"     = "${local.stack_prefix}-postgres-${local.rds_app_env}"
+      "RepoName"    = "${get_env("repo_name")}"
+      "ManagedBy"   = "Terraform"
+    }
 EOF
 }
 

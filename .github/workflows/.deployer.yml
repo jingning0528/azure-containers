@@ -99,6 +99,7 @@ jobs:
           stack_prefix: ${{ inputs.stack_prefix }}
           azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
           db_master_password: ${{ secrets.DB_MASTER_PASSWORD }}
+          repo_name: ${{ github.event.repository.name }}
       run: |
           # Run terraform
           terragrunt run-all ${{inputs.command}} --terragrunt-non-interactive

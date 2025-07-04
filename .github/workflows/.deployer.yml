@@ -88,6 +88,8 @@ jobs:
     - name: Terragrunt ${{inputs.command}}
       working-directory: terraform/${{ inputs.working_directory }}/${{ inputs.environment_name }}
       env:
+          TF_LOG: TRACE
+          TG_LOG: TRACE
           target_env: ${{ inputs.environment_name }}
           azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}

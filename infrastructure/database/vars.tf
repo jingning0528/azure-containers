@@ -39,13 +39,13 @@ variable "postgresql_admin_username" {
 variable "postgresql_sku_name" {
   description = "SKU name for PostgreSQL Flexible Server"
   type        = string
-  default     = "GP_Standard_D2s_v3"
+  default     = "B1ms" # Basic SKU for development purposes
 }
 
 variable "postgresql_storage_mb" {
   description = "Storage in MB for PostgreSQL server"
   type        = number
-  default     = 32768
+  default     = 5000
 }
 
 variable "backup_retention_period" {

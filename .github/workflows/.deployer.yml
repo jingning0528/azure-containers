@@ -32,7 +32,11 @@ on:
         required: true
         type: string
         description: 'The stack prefix to use for the resources'
-    
+    outputs:
+      POSTGRESQL_SERVER_FQDN:
+        description: 'PostgreSQL server FQDN'
+        value: ${{ jobs.infra.outputs.POSTGRESQL_SERVER_FQDN }}
+      
 env:
     TG_VERSION: 0.63.6
     TF_VERSION: 1.12.2
@@ -46,7 +50,8 @@ jobs:
   environment: ${{ inputs.environment_name }}
   name: Terraform ${{inputs.command}} ${{inputs.working_directory}} ${{inputs.app_env}}
   runs-on: ubuntu-24.04
-
+  outputs:
+    POSTGRESQL_SERVER_FQDN: ${{ steps.tg-outputs-database.outputs.POSTGRESQL_SERVER_FQDN }}
   steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -95,4 +100,25 @@ jobs:
           # Run terraform
           terragrunt run-all ${{inputs.command}} --terragrunt-non-interactive
     
-    
+    - name: Terragrunt Database Outputs
+      if: ( inputs.working_directory == 'database' && inputs.command == 'apply' )
+      working-directory: terraform/${{ inputs.working_directory }}/${{ inputs.environment_name }}
+      id: tg-outputs-database
+      env:
+          target_env: ${{ inputs.environment_name }}
+          azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }} 
+          vnet_name: ${{ secrets.VNET_NAME }}
+          flyway_image: ${{ steps.image-tags.outputs.flyway-image }}
+          api_image: ${{ steps.image-tags.outputs.api-image }}
+          app_env: ${{inputs.app_env}}
+          stack_prefix: ${{ inputs.stack_prefix }}
+          azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          db_master_password: ${{ secrets.DB_MASTER_PASSWORD }}
+          repo_name: ${{ github.event.repository.name }}
+      run: |
+          terragrunt output -json > outputs.json
+          #print the output
+          cat outputs.json
+          echo "POSTGRESQL_SERVER_FQDN=$(jq -r .postgresql_server_fqdn.value outputs.json)" >> $GITHUB_OUTPUT

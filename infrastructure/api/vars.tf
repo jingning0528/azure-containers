@@ -37,11 +37,13 @@ variable "container_apps_subnet_name" {
 variable "postgresql_server_fqdn" {
   description = "FQDN of the PostgreSQL server"
   type        = string
+  default = "example.database.azure.com" # makes the terraform plan work without a real server
 }
 
 variable "postgresql_admin_username" {
   description = "PostgreSQL admin username"
   type        = string
+  default = "pgadmin"
 }
 
 variable "postgresql_admin_password" {
@@ -110,12 +112,6 @@ variable "subscription_id" {
 variable "tenant_id" {
   description = "Azure tenant ID"
   type        = string
-}
-
-variable "centralized_dns_resource_group_name" {
-  description = "Resource group name where centralized private DNS zones are managed in Azure Landing Zone"
-  type        = string
-  default     = "rg-dns-central"
 }
 
 variable "common_tags" {

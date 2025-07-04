@@ -3,20 +3,20 @@ terraform {
 }
 
 locals {
-  azure_region            = "Canada Central"
-  stack_prefix            = get_env("stack_prefix")
-  # Terraform remote Azure Storage config
-  tf_remote_state_prefix  = "terraform-remote-state"
-  target_env              = get_env("target_env")
-  azure_subscription_id   = get_env("azure_subscription_id")
-  azure_tenant_id         = get_env("azure_tenant_id")
-  app_env                 = get_env("app_env")
-  storage_account_name    = "${local.tf_remote_state_prefix}${replace(local.azure_subscription_id, "-", "")}" 
-  statefile_key           = "${local.stack_prefix}/${local.app_env}/api/terraform.tfstate"
-  container_name          = "tfstate"
   flyway_image            = get_env("flyway_image")
   api_image               = get_env("api_image")
-  rds_app_env = (contains(["dev", "test", "prod"], "${local.app_env}") ? "${local.app_env}" : "dev")
+  azure_region            = "Canada Central"
+  stack_prefix            = get_env("stack_prefix")
+  vnet_resource_group_name = get_env("vnet_resource_group_name") # this is the resource group where the VNet exists and initial setup was done.
+  vnet_name              = get_env("vnet_name") # this is the name of the existing VNet
+  storage_account_name    = "tfstatequickstartazureco"
+  target_env              = get_env("target_env") # this is the target environment, like dev, test, prod
+  azure_subscription_id   = get_env("azure_subscription_id")
+  azure_tenant_id         = get_env("azure_tenant_id")
+  azure_client_id         = get_env("azure_client_id") # this is the client ID of the Azure service principal
+  app_env                 = get_env("app_env") # this is the environment for the app
+  container_name          = "tfstate"
+  statefile_key           = "${local.stack_prefix}/${local.app_env}/api/terraform.tfstate"
 }
 
 # Remote Azure Storage backend for Terraform
@@ -24,49 +24,49 @@ generate "remote_state" {
   path      = "backend.tf"
   if_exists = "overwrite"
   contents  = <<EOF
-terraform {
-  backend "azurerm" {
-    storage_account_name = "${local.storage_account_name}"
-    container_name       = "${local.container_name}"
-    key                  = "${local.statefile_key}"
-  }
-}
+    terraform {
+      backend "azurerm" {
+        resource_group_name   = "${local.vnet_resource_group_name}"
+        storage_account_name  = "${local.storage_account_name}"
+        container_name        = "tfstate"
+        key                   = "${local.statefile_key}"
+        subscription_id       = "${local.azure_subscription_id}"
+        tenant_id             = "${local.azure_tenant_id}"
+        client_id             = "${local.azure_client_id}"
+        use_oidc              = true
+      }
+    }
 EOF
 }
 
-# Remote state dependency for database
-dependency "database" {
-  config_path = "../database"
-  
-  mock_outputs = {
-    postgresql_server_fqdn = "mock-postgresql-server.postgres.database.azure.com"
-    key_vault_name = "mock-keyvault"
-    postgresql_admin_username_secret_name = "postgresql-admin-username"
-    postgresql_admin_password_secret_name = "postgresql-admin-password"
-    database_name = "app"
-  }
-  mock_outputs_allowed_terraform_commands = ["validate", "plan"]
-}
 
 generate "tfvars" {
   path              = "terragrunt.auto.tfvars"
   if_exists         = "overwrite"
   disable_signature = true
   contents          = <<-EOF
-  app_name = "${local.stack_prefix}-${local.app_env}"
-  app_env = "${local.app_env}"
-  api_image = "${local.api_image}"
-  flyway_image = "${local.flyway_image}"
-    # Database configuration
-  postgresql_server_fqdn = "${dependency.database.outputs.postgresql_server_fqdn}"
-  database_key_vault_name = "${dependency.database.outputs.key_vault_name}"
-  postgresql_admin_username_secret_name = "${dependency.database.outputs.postgresql_admin_username_secret_name}"
-  postgresql_admin_password_secret_name = "${dependency.database.outputs.postgresql_admin_password_secret_name}"
-  database_name = "${dependency.database.outputs.database_name}"
-  resource_group_name = "${dependency.database.outputs.resource_group_name}"
-  
-  subscription_id = "${local.azure_subscription_id}"
-  tenant_id = "${local.azure_tenant_id}"
+    app_name = "${local.stack_prefix}-api-${local.app_env}"
+    app_env = "${local.app_env}"
+    resource_group_name = "${local.stack_prefix}-api-rg-${local.app_env}"
+    location = "${local.azure_region}"
+    subscription_id = "${local.azure_subscription_id}"
+    tenant_id = "${local.azure_tenant_id}"
+    vnet_name = "${local.vnet_name}"
+    vnet_resource_group_name = "${local.vnet_resource_group_name}"
+    container_apps_subnet_name = "app-subnet"
+    api_image = "${local.api_image}"
+    flyway_image = "${local.flyway_image}"
+    postgresql_server_fqdn = "${get_env("postgresql_server_fqdn")}"
+    postgresql_admin_username = "${get_env("postgresql_admin_username")}"
+    postgresql_admin_password = "${get_env("postgresql_admin_password")}"
+    database_name = "${get_env("database_name", "app")}"
+    common_tags = {
+      "Environment" = "${local.target_env}"
+      "AppEnv"      = "${local.app_env}"
+      "AppName"     = "${local.stack_prefix}-api-${local.app_env}"
+      "RepoName"    = "${get_env("repo_name")}"
+      "ManagedBy"   = "Terraform"
+    }
 EOF
 }
 
@@ -74,19 +74,30 @@ generate "provider" {
   path      = "provider.tf"
   if_exists = "overwrite"
   contents  = <<EOF
-terraform {
-  required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "~> 3.0"
+    terraform {
+      required_providers {
+        azurerm = {
+          source  = "hashicorp/azurerm"
+          version = "~> 4.0"
+        }
+        random = {
+          source  = "hashicorp/random"
+          version = "~> 3.0"
+        }
+      }
     }
-  }
-}
 
-provider "azurerm" {
-  features {}
-  subscription_id = "${local.azure_subscription_id}"
-  tenant_id      = "${local.azure_tenant_id}"
-}
+    provider "azurerm" {
+      features {
+        key_vault {
+          purge_soft_delete_on_destroy    = true
+          recover_soft_deleted_key_vaults = true
+        }
+      }
+      subscription_id = "${local.azure_subscription_id}"
+      tenant_id      = "${local.azure_tenant_id}"
+      use_oidc       = true
+      client_id     = "${local.azure_client_id}"
+    }
 EOF
 }

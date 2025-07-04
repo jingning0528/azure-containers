@@ -15,80 +15,58 @@ data "azurerm_subnet" "container_apps" {
   resource_group_name  = var.vnet_resource_group_name
 }
 
-# Data source for database Key Vault (can be in same or different RG)
-data "azurerm_key_vault" "database" {
-  name                = var.database_key_vault_name
-  resource_group_name = var.resource_group_name  # Same RG as database is now in the same RG
+# Resource group for API resources
+resource "azurerm_resource_group" "api" {
+  name     = var.resource_group_name
+  location = var.location
+  tags     = var.common_tags
 }
 
 # Container Apps Environment with VNet integration
 resource "azurerm_container_app_environment" "main" {
-  name                           = "${var.app_name}-containerapp-env-${var.app_env}"
+  name                           = "${var.app_name}-containerapp"
   location                       = var.location
-  resource_group_name            = var.resource_group_name
+  resource_group_name            = azurerm_resource_group.api.name
   infrastructure_subnet_id       = data.azurerm_subnet.container_apps.id
   internal_load_balancer_enabled = true
 
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
-  tags = {
-    managed-by = "terraform"
-    environment = var.app_env
-  }
+  tags = var.common_tags
 }
 
 # Log Analytics Workspace for Container Apps
 resource "azurerm_log_analytics_workspace" "main" {
-  name                = "${var.app_name}-logs-${var.app_env}"
+  name                = "${var.app_name}-logs"
   location            = var.location
-  resource_group_name = var.resource_group_name
+  resource_group_name = azurerm_resource_group.api.name
   sku                 = "PerGB2018"
   retention_in_days   = 30
 
-  tags = {
-    managed-by = "terraform"
-    environment = var.app_env
-  }
+  tags = var.common_tags
 }
 
 # User Assigned Managed Identity for Container Apps
 resource "azurerm_user_assigned_identity" "container_apps" {
-  name                = "${var.app_name}-containerapp-identity-${var.app_env}"
+  name                = "${var.app_name}-containerapp-identity"
   location            = var.location
-  resource_group_name = var.resource_group_name
+  resource_group_name = azurerm_resource_group.api.name
 
-  tags = {
-    managed-by = "terraform"
-    environment = var.app_env
-  }
-}
-
-# Grant access to Key Vault secrets
-resource "azurerm_role_assignment" "key_vault_secrets_user" {
-  scope                = data.azurerm_key_vault.database.id
-  role_definition_name = "Key Vault Secrets User"
-  principal_id         = azurerm_user_assigned_identity.container_apps.principal_id
+  tags = var.common_tags
 }
 
 # Container Registry (if using private registry) - Landing Zone compliant
 resource "azurerm_container_registry" "main" {
   count               = var.create_container_registry ? 1 : 0
-  name                = "${replace(var.app_name, "-", "")}acr${var.app_env}"
-  resource_group_name = var.resource_group_name
+  name                = "${replace(var.app_name, "-", "")}acr"
+  resource_group_name = azurerm_resource_group.api.name
   location            = var.location
   sku                 = "Premium"
   admin_enabled       = false
 
   # Azure Landing Zone security requirements
   public_network_access_enabled = false
-
-  # Note: Network rule set configuration would require Premium SKU
-  # For now, keeping it simple for Standard SKU compatibility
-
-  tags = {
-    managed-by = "terraform"
-    environment = var.app_env
-  }
+  tags = var.common_tags
 }
 
 # Grant Container Apps environment access to Container Registry
@@ -101,9 +79,9 @@ resource "azurerm_role_assignment" "acr_pull" {
 
 # Container App for API Backend
 resource "azurerm_container_app" "api" {
-  name                         = "${var.app_name}-api-${var.app_env}"
+  name                         = "${var.app_name}-api"
   container_app_environment_id = azurerm_container_app_environment.main.id
-  resource_group_name          = var.resource_group_name
+  resource_group_name          = azurerm_resource_group.api.name
   revision_mode               = "Single"
 
   identity {
@@ -128,7 +106,7 @@ resource "azurerm_container_app" "api" {
 
       env {
         name  = "PORT"
-        value = "3001"
+        value = "3000"
       }
 
       env {
@@ -154,13 +132,13 @@ resource "azurerm_container_app" "api" {
       liveness_probe {
         transport = "HTTP"
         path      = "/api/health"
-        port      = 3001
+        port      = 3000
       }
 
       readiness_probe {
         transport = "HTTP"
         path      = "/api/health"
-        port      = 3001
+        port      = 3000
       }
     }
   }
@@ -171,15 +149,13 @@ resource "azurerm_container_app" "api" {
   }
 
   secret {
-    name                = "postgres-user"
-    key_vault_secret_id = "${data.azurerm_key_vault.database.vault_uri}secrets/${var.postgresql_admin_username_secret_name}"
-    identity            = azurerm_user_assigned_identity.container_apps.id
+    name  = "postgres-user"
+    value = var.postgresql_admin_username
   }
 
   secret {
-    name                = "postgres-password"
-    key_vault_secret_id = "${data.azurerm_key_vault.database.vault_uri}secrets/${var.postgresql_admin_password_secret_name}"
-    identity            = azurerm_user_assigned_identity.container_apps.id
+    name  = "postgres-password"
+    value = var.postgresql_admin_password
   }
 
   secret {
@@ -188,9 +164,9 @@ resource "azurerm_container_app" "api" {
   }
 
   ingress {
-    allow_insecure_connections = false
+    allow_insecure_connections = true
     external_enabled          = false
-    target_port               = 3001
+    target_port               = 3000
 
     traffic_weight {
       percentage      = 100
@@ -198,20 +174,15 @@ resource "azurerm_container_app" "api" {
     }
   }
 
-  tags = {
-    managed-by = "terraform"
-    environment = var.app_env
-  }
-
-  depends_on = [azurerm_role_assignment.key_vault_secrets_user]
+  tags = var.common_tags
 }
 
 # Container App Job for Database Migrations
 resource "azurerm_container_app_job" "migrations" {
-  name                         = "${var.app_name}-migrations-${var.app_env}"
+  name                         = "${var.app_name}-migrations"
   location                     = var.location
   container_app_environment_id = azurerm_container_app_environment.main.id
-  resource_group_name          = var.resource_group_name
+  resource_group_name          = azurerm_resource_group.api.name
   replica_timeout_in_seconds   = 1800
 
   identity {
@@ -234,7 +205,7 @@ resource "azurerm_container_app_job" "migrations" {
 
       env {
         name  = "FLYWAY_URL"
-        value = "jdbc:postgresql://${var.postgresql_server_fqdn}:5432/${var.database_name}?sslmode=require"
+        value = "jdbc:postgresql://${var.postgresql_server_fqdn}:5432/${var.database_name}"
       }
 
       env {
@@ -260,21 +231,14 @@ resource "azurerm_container_app_job" "migrations" {
   }
 
   secret {
-    name                = "postgres-user"
-    key_vault_secret_id = "${data.azurerm_key_vault.database.vault_uri}secrets/${var.postgresql_admin_username_secret_name}"
-    identity            = azurerm_user_assigned_identity.container_apps.id
+    name  = "postgres-user"
+    value = var.postgresql_admin_username
   }
 
   secret {
-    name                = "postgres-password"
-    key_vault_secret_id = "${data.azurerm_key_vault.database.vault_uri}secrets/${var.postgresql_admin_password_secret_name}"
-    identity            = azurerm_user_assigned_identity.container_apps.id
+    name  = "postgres-password"
+    value = var.postgresql_admin_password
   }
 
-  tags = {
-    managed-by = "terraform"
-    environment = var.app_env
-  }
-
-  depends_on = [azurerm_role_assignment.key_vault_secrets_user]
+  tags = var.common_tags
 }

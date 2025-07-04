@@ -37,3 +37,8 @@ output "migration_job_name" {
   description = "Name of the Container App Job for migrations"
   value       = azurerm_container_app_job.migrations.name
 }
+
+output "resource_group_name" {
+  description = "Name of the API resource group"
+  value       = azurerm_resource_group.api.name
+}

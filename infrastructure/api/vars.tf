@@ -34,24 +34,20 @@ variable "container_apps_subnet_name" {
   type        = string
 }
 
-variable "database_key_vault_name" {
-  description = "Name of the Key Vault containing database credentials"
-  type        = string
-}
-
 variable "postgresql_server_fqdn" {
   description = "FQDN of the PostgreSQL server"
   type        = string
 }
 
-variable "postgresql_admin_username_secret_name" {
-  description = "Name of the Key Vault secret containing PostgreSQL admin username"
+variable "postgresql_admin_username" {
+  description = "PostgreSQL admin username"
   type        = string
 }
 
-variable "postgresql_admin_password_secret_name" {
-  description = "Name of the Key Vault secret containing PostgreSQL admin password"
+variable "postgresql_admin_password" {
+  description = "PostgreSQL admin password"
   type        = string
+  sensitive   = true
 }
 
 variable "database_name" {
@@ -120,4 +116,10 @@ variable "centralized_dns_resource_group_name" {
   description = "Resource group name where centralized private DNS zones are managed in Azure Landing Zone"
   type        = string
   default     = "rg-dns-central"
+}
+
+variable "common_tags" {
+  description = "Common tags to apply to all resources"
+  type        = map(string)
+  default     = {}
 }

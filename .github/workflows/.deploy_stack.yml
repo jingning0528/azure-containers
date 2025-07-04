@@ -44,4 +44,15 @@ jobs:
       app_env: ${{ inputs.app_env }}
       stack_prefix: ${{ needs.stack-prefix.outputs.stack_prefix }}
     secrets: inherit
-  
+  deploy-api:
+    name: Deploys API
+    needs: [deploy-db, stack-prefix]
+    uses: ./.github/workflows/.deployer.yml
+    with:
+      environment_name: ${{ inputs.environment_name }}
+      command: ${{ inputs.command }}
+      tag: ${{ inputs.tag }}
+      app_env: ${{ inputs.app_env }}
+      working_directory: api
+      stack_prefix: ${{ needs.stack-prefix.outputs.stack_prefix }}
+    secrets: inherit

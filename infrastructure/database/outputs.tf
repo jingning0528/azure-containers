@@ -46,3 +46,15 @@ output "database_endpoint" {
   value       = "${azurerm_postgresql_flexible_server.main.fqdn}:5432"
   sensitive   = false
 }
+
+# Private Endpoint outputs
+output "postgresql_private_endpoint_id" {
+  description = "ID of the PostgreSQL private endpoint"
+  value       = azurerm_private_endpoint.postgresql.id
+}
+
+output "postgresql_private_endpoint_ip" {
+  description = "Private IP address of the PostgreSQL private endpoint"
+  value       = azurerm_private_endpoint.postgresql.private_service_connection[0].private_ip_address
+}
+

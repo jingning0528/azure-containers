@@ -2,7 +2,7 @@
 
 data "azurerm_client_config" "current" {}
 
-# Data source for existing virtual network
+# Data source for existing virtual network, which is created as part of Initial Setup
 data "azurerm_virtual_network" "main" {
   name                = var.vnet_name
   resource_group_name = var.vnet_resource_group_name
@@ -32,11 +32,6 @@ resource "azurerm_postgresql_flexible_server" "main" {
   backup_retention_days        = var.backup_retention_period
   geo_redundant_backup_enabled = var.geo_redundant_backup_enabled
 
-  # Private network integration using delegated subnet
-  # Note: PostgreSQL Flexible Server uses delegated subnet integration
-  # rather than traditional private endpoints
-  delegated_subnet_id = data.azurerm_subnet.private_endpoints.id
-
   # Not allowed to be public in Azure Landing Zone
   # Public network access is disabled to comply with Azure Landing Zone security requirements
   public_network_access_enabled = false
@@ -58,8 +53,7 @@ resource "azurerm_postgresql_flexible_server" "main" {
   # Lifecycle block to handle automatic DNS zone associations by Azure Policy
   lifecycle {
     ignore_changes = [
-      # Ignore changes to private_dns_zone_id as it is managed by Azure Policy
-      private_dns_zone_id
+      tags
     ]
   }
 }
@@ -72,8 +66,35 @@ resource "azurerm_postgresql_flexible_server_database" "main" {
   charset   = "utf8"
 }
 
-# Note: PostgreSQL Flexible Server uses delegated subnet integration
-# and does not require a separate private endpoint resource
+# Private Endpoint for PostgreSQL Flexible Server
+# Note: DNS zone association will be automatically managed by Azure Policy
+resource "azurerm_private_endpoint" "postgresql" {
+  name                = "${var.app_name}-postgresql-pe-${var.app_env}"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.main.name
+  subnet_id           = data.azurerm_subnet.private_endpoints.id
+
+  private_service_connection {
+    name                           = "${var.app_name}-postgresql-psc-${var.app_env}"
+    private_connection_resource_id = azurerm_postgresql_flexible_server.main.id
+    subresource_names              = ["postgresqlServer"]
+    is_manual_connection           = false
+  }
+
+  tags = var.common_tags
+
+  # Lifecycle block to ignore DNS zone group changes managed by Azure Policy
+  lifecycle {
+    ignore_changes = [
+      private_dns_zone_group
+    ]
+  }
+}
+
+# Note: PostgreSQL Flexible Server private endpoint is created above
+# Private DNS Zone association is automatically managed by Azure Landing Zone Policy
+# The Landing Zone automation will automatically associate the private endpoint 
+# with the appropriate managed DNS zone (privatelink.postgres.database.azure.com)
 
 # PostgreSQL Configuration for performance
 resource "azurerm_postgresql_flexible_server_configuration" "shared_preload_libraries" {

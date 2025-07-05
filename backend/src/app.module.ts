@@ -23,6 +23,6 @@ import { HealthController } from "./health.controller";
 })
 export class AppModule { // let's add a middleware on all routes
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(HTTPLoggerMiddleware).exclude({ path: 'metrics', method: RequestMethod.ALL }, { path: 'health', method: RequestMethod.ALL }).forRoutes('*');
+    consumer.apply(HTTPLoggerMiddleware).forRoutes('*');
   }
 }

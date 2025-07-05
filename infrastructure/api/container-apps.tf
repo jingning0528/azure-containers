@@ -134,7 +134,7 @@ resource "azurerm_container_app" "api" {
 
       env {
         name  = "FLYWAY_URL"
-        value = "jdbc:postgresql://${var.postgresql_server_fqdn}:5432/${var.database_name}"
+        value = "jdbc:postgresql://${var.postgresql_server_fqdn}:5432/${var.database_name}?ssl=true"
       }
 
       env {
@@ -158,7 +158,7 @@ resource "azurerm_container_app" "api" {
       }
       env {
         name  = "FLYWAY_CONNECT_RETRIES"
-        value = "2"
+        value = "30"
       }
       env {
         name  = "FLYWAY_GROUP"

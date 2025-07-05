@@ -301,6 +301,11 @@ resource "null_resource" "run_migrations" {
   }
 
   provisioner "local-exec" {
-    command = "az containerapp job start --name ${azurerm_container_app_job.migrations.name} --resource-group ${azurerm_resource_group.api.name}"
+    command = <<-EOT
+      echo "Starting database migration job..."
+      az containerapp job start --name ${azurerm_container_app_job.migrations.name} --resource-group ${azurerm_resource_group.api.name} --wait
+      echo "Migration job completed. Fetching logs..."
+      az containerapp job logs show --name ${azurerm_container_app_job.migrations.name} --resource-group ${azurerm_resource_group.api.name}
+    EOT
   }
 }

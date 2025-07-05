@@ -147,9 +147,57 @@ resource "azurerm_container_app" "api" {
   template {
     min_replicas = var.min_replicas
     max_replicas = var.max_replicas
-    
+    init_container {
+      name   = "${var.app_name}-migrations"
+      image  = var.flyway_image
+      cpu    = var.container_cpu
+      memory = var.container_memory
+
+      env {
+        name  = "FLYWAY_URL"
+        value = "jdbc:postgresql://${var.postgresql_server_fqdn}/${var.database_name}?sslmode=require"
+      }
+
+      env {
+        name        = "FLYWAY_USER"
+        secret_name = "postgres-user"
+      }
+
+      env {
+        name        = "FLYWAY_PASSWORD"
+        secret_name = "postgres-password"
+      }
+
+      env {
+        name  = "FLYWAY_BASELINE_ON_MIGRATE"
+        value = "true"
+      }
+
+      env {
+        name  = "FLYWAY_DEFAULT_SCHEMA"
+        value = "app"
+      }
+      env {
+        name  = "FLYWAY_CONNECT_RETRIES"
+        value = "30"
+      }
+      env {
+        name  = "FLYWAY_GROUP"
+        value = "true"
+      }
+      env {
+        name  = "FLYWAY_LOG_LEVEL"
+        value = "DEBUG"
+      }
+
+      # Add Application Insights connection for enhanced logging
+      env {
+        name  = "APPLICATIONINSIGHTS_CONNECTION_STRING"
+        value = azurerm_application_insights.main.connection_string
+      }
+    }
     container {
-      name   = "api"
+      name   = "${var.app_name}-api"
       image  = var.api_image
       cpu    = var.container_cpu
       memory = var.container_memory

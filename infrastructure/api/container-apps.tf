@@ -32,7 +32,7 @@ resource "azurerm_resource_group" "api" {
 resource "azurerm_container_app_environment" "main" {
   name                           = "${var.app_name}-containerapp"
   location                       = var.location
-  resource_group_name            = azurerm_resource_group.api.name
+  resource_group_name            = var.resource_group_name
   infrastructure_subnet_id       = data.azurerm_subnet.container_apps.id
   internal_load_balancer_enabled = true
 
@@ -126,6 +126,50 @@ resource "azurerm_container_app" "api" {
     min_replicas = var.min_replicas
     max_replicas = var.max_replicas
 
+    init_container {
+      name   = "migrations"
+      image  = var.flyway_image
+      cpu    = var.container_cpu
+      memory = var.container_memory
+
+      env {
+        name  = "FLYWAY_URL"
+        value = "jdbc:postgresql://${var.postgresql_server_fqdn}:5432/${var.database_name}"
+      }
+
+      env {
+        name        = "FLYWAY_USER"
+        secret_name = "postgres-user"
+      }
+
+      env {
+        name        = "FLYWAY_PASSWORD"
+        secret_name = "postgres-password"
+      }
+
+      env {
+        name  = "FLYWAY_BASELINE_ON_MIGRATE"
+        value = "true"
+      }
+
+      env {
+        name  = "FLYWAY_DEFAULT_SCHEMA"
+        value = "app"
+      }
+      env {
+        name  = "FLYWAY_CONNECT_RETRIES"
+        value = "2"
+      }
+      env {
+        name  = "FLYWAY_GROUP"
+        value = "true"
+      }
+      env {
+        name  = "FLYWAY_LOG_LEVEL"
+        value = "DEBUG"
+      }
+    }
+
     container {
       name   = "api"
       image  = var.api_image
@@ -213,99 +257,5 @@ resource "azurerm_container_app" "api" {
       # Ignore tags to allow management via Azure Policy
       tags
     ]
-  }
-}
-
-# Container App Job for Database Migrations
-resource "azurerm_container_app_job" "migrations" {
-  name                         = "${var.app_name}-migrations"
-  location                     = var.location
-  container_app_environment_id = azurerm_container_app_environment.main.id
-  resource_group_name          = azurerm_resource_group.api.name
-  replica_timeout_in_seconds   = 1800
-
-  identity {
-    type         = "UserAssigned"
-    identity_ids = [azurerm_user_assigned_identity.container_apps.id]
-  }
-
-  # Manual trigger configuration for GitHub Actions deployment
-  manual_trigger_config {
-    parallelism            = 1
-    replica_completion_count = 1
-  }
-
-
-  template {
-    container {
-      name   = "migrations"
-      image  = var.flyway_image
-      cpu    = 1
-      memory = "2Gi"
-
-      env {
-        name  = "FLYWAY_URL"
-        value = "jdbc:postgresql://${var.postgresql_server_fqdn}:5432/${var.database_name}"
-      }
-
-      env {
-        name        = "FLYWAY_USER"
-        secret_name = "postgres-user"
-      }
-
-      env {
-        name        = "FLYWAY_PASSWORD"
-        secret_name = "postgres-password"
-      }
-
-      env {
-        name  = "FLYWAY_BASELINE_ON_MIGRATE"
-        value = "true"
-      }
-
-      env {
-        name  = "FLYWAY_DEFAULT_SCHEMA"
-        value = "app"
-      }
-    }
-  }
-
-  secret {
-    name  = "postgres-user"
-    value = var.postgresql_admin_username
-  }
-
-  secret {
-    name  = "postgres-password"
-    value = var.postgresql_admin_password
-  }
-
-  tags = var.common_tags
-  lifecycle {
-    ignore_changes = [ 
-      # Ignore tags to allow management via Azure Policy
-      tags
-    ]
-  }
-}
-
-# Automatic execution of migrations job on terraform apply
-resource "null_resource" "run_migrations" {
-  depends_on = [azurerm_container_app_job.migrations]
-
-  triggers = {
-    # Run whenever the job configuration changes
-    job_id = azurerm_container_app_job.migrations.id
-    # Run on every terraform apply
-    always_run = timestamp()
-  }
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      echo "Starting database migration job..."
-      az containerapp job start --name ${azurerm_container_app_job.migrations.name} --resource-group ${azurerm_resource_group.api.name} --wait
-      echo "Migration job completed. Fetching logs..."
-      az containerapp job logs show --name ${azurerm_container_app_job.migrations.name} --resource-group ${azurerm_resource_group.api.name}
-    EOT
   }
 }

@@ -32,7 +32,7 @@ resource "azurerm_resource_group" "api" {
 resource "azurerm_container_app_environment" "main" {
   name                           = "${var.app_name}-containerapp"
   location                       = var.location
-  resource_group_name            = var.resource_group_name
+  resource_group_name            = azurerm_resource_group.api.name
   infrastructure_subnet_id       = data.azurerm_subnet.container_apps.id
   internal_load_balancer_enabled = true
 
@@ -134,65 +134,20 @@ resource "azurerm_container_app" "api" {
   resource_group_name          = azurerm_resource_group.api.name
   revision_mode               = "Single"
 
+  # Add explicit dependency to ensure proper order
+  depends_on = [
+    azurerm_container_app_environment.main,
+    azurerm_log_analytics_workspace.main
+  ]
   identity {
     type         = "UserAssigned"
     identity_ids = [azurerm_user_assigned_identity.container_apps.id]
   }
-
+  
   template {
     min_replicas = var.min_replicas
     max_replicas = var.max_replicas
-
-    init_container {
-      name   = "migrations"
-      image  = var.flyway_image
-      cpu    = var.container_cpu
-      memory = var.container_memory
-
-      env {
-        name  = "FLYWAY_URL"
-        value = "jdbc:postgresql://${var.postgresql_server_fqdn}:5432/${var.database_name}?ssl=true"
-      }
-
-      env {
-        name        = "FLYWAY_USER"
-        secret_name = "postgres-user"
-      }
-
-      env {
-        name        = "FLYWAY_PASSWORD"
-        secret_name = "postgres-password"
-      }
-
-      env {
-        name  = "FLYWAY_BASELINE_ON_MIGRATE"
-        value = "true"
-      }
-
-      env {
-        name  = "FLYWAY_DEFAULT_SCHEMA"
-        value = "app"
-      }
-      env {
-        name  = "FLYWAY_CONNECT_RETRIES"
-        value = "30"
-      }
-      env {
-        name  = "FLYWAY_GROUP"
-        value = "true"
-      }
-      env {
-        name  = "FLYWAY_LOG_LEVEL"
-        value = "DEBUG"
-      }
-
-      # Add Application Insights connection for enhanced logging
-      env {
-        name  = "APPLICATIONINSIGHTS_CONNECTION_STRING"
-        value = azurerm_application_insights.main.connection_string
-      }
-    }
-
+    
     container {
       name   = "api"
       image  = var.api_image

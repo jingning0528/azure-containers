@@ -41,6 +41,8 @@ resource "azurerm_container_app_environment" "main" {
   # Workload profiles for v2 Container Apps Environment
   # This allows /27 subnet size instead of /23 required by consumption plan
   workload_profile {
+    maximum_count = var.max_replicas
+    minimum_count = var.min_replicas
     name                  = "Consumption"
     workload_profile_type = "Consumption"
   }
@@ -233,12 +235,13 @@ resource "azurerm_container_app_job" "migrations" {
     replica_completion_count = 1
   }
 
+
   template {
     container {
       name   = "migrations"
       image  = var.flyway_image
-      cpu    = 0.25
-      memory = "0.5Gi"
+      cpu    = 1
+      memory = "2Gi"
 
       env {
         name  = "FLYWAY_URL"
@@ -283,5 +286,21 @@ resource "azurerm_container_app_job" "migrations" {
       # Ignore tags to allow management via Azure Policy
       tags
     ]
+  }
+}
+
+# Automatic execution of migrations job on terraform apply
+resource "null_resource" "run_migrations" {
+  depends_on = [azurerm_container_app_job.migrations]
+
+  triggers = {
+    # Run whenever the job configuration changes
+    job_id = azurerm_container_app_job.migrations.id
+    # Run on every terraform apply
+    always_run = timestamp()
+  }
+
+  provisioner "local-exec" {
+    command = "az containerapp job start --name ${azurerm_container_app_job.migrations.name} --resource-group ${azurerm_resource_group.api.name}"
   }
 }

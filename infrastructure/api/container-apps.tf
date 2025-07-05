@@ -63,7 +63,24 @@ resource "azurerm_log_analytics_workspace" "main" {
   resource_group_name = azurerm_resource_group.api.name
   sku                 = "PerGB2018"
   retention_in_days   = 30
+  
+  tags = var.common_tags
+  lifecycle {
+    ignore_changes = [ 
+      # Ignore tags to allow management via Azure Policy
+      tags
+    ]
+  }
+}
 
+# Application Insights for enhanced monitoring and logging
+resource "azurerm_application_insights" "main" {
+  name                = "${var.app_name}-appinsights"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.api.name
+  application_type    = "other"
+  workspace_id        = azurerm_log_analytics_workspace.main.id
+  
   tags = var.common_tags
   lifecycle {
     ignore_changes = [ 
@@ -168,6 +185,12 @@ resource "azurerm_container_app" "api" {
         name  = "FLYWAY_LOG_LEVEL"
         value = "DEBUG"
       }
+
+      # Add Application Insights connection for enhanced logging
+      env {
+        name  = "APPLICATIONINSIGHTS_CONNECTION_STRING"
+        value = azurerm_application_insights.main.connection_string
+      }
     }
 
     container {
@@ -204,6 +227,12 @@ resource "azurerm_container_app" "api" {
       env {
         name        = "POSTGRES_DATABASE"
         secret_name = "postgres-database"
+      }
+
+      # Add Application Insights for enhanced logging and monitoring
+      env {
+        name  = "APPLICATIONINSIGHTS_CONNECTION_STRING"
+        value = azurerm_application_insights.main.connection_string
       }
 
       liveness_probe {

@@ -9,7 +9,7 @@ import { AppController } from "./app.controller";
 import { MetricsController } from "./metrics.controller";
 import { TerminusModule } from '@nestjs/terminus';
 import { HealthController } from "./health.controller";
-import { UserService } from "./users/users.service";
+import { UsersService } from "./users/users.service";
 
 
 
@@ -21,7 +21,7 @@ import { UserService } from "./users/users.service";
     UsersModule
   ],
   controllers: [AppController,MetricsController, HealthController],
-  providers: [AppService, PrismaService, UserService]
+  providers: [AppService, PrismaService, UsersService]
 })
 export class AppModule { // let's add a middleware on all routes
   configure(consumer: MiddlewareConsumer) {

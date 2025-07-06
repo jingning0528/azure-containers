@@ -379,11 +379,11 @@ resource "azurerm_api_management_api_operation" "api_proxy" {
   resource_group_name = azurerm_resource_group.api.name
   display_name       = "API Proxy"
   method             = "GET"
-  url_template       = "/*"
+  url_template       = "/{*path}"
   description        = "Proxy all API calls to Container Apps backend"
 
   template_parameter {
-    name     = "*"
+    name     = "path"
     type     = "string"
     required = false
   }
@@ -397,11 +397,11 @@ resource "azurerm_api_management_api_operation" "api_proxy_post" {
   resource_group_name = azurerm_resource_group.api.name
   display_name       = "API Proxy POST"
   method             = "POST"
-  url_template       = "/*"
+  url_template       = "/{*path}"
   description        = "Proxy POST calls to Container Apps backend"
 
   template_parameter {
-    name     = "*"
+    name     = "path"
     type     = "string"
     required = false
   }
@@ -419,7 +419,7 @@ resource "azurerm_api_management_api_operation_policy" "api_proxy_policy" {
   <inbound>
     <base />
     <set-backend-service backend-id="${azurerm_api_management_backend.container_apps.name}" />
-    <rewrite-uri template="{urlPath}" />
+    <rewrite-uri template="/{path}" />
   </inbound>
   <backend>
     <base />

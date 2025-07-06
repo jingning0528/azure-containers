@@ -364,14 +364,19 @@ function New-NetworkSecurityGroup {
                 }
                 $inboundRuleExists = $existingRules | Where-Object { $_.name -eq "AllowAppFromWeb" }
                 $outboundRuleExists = $existingRules | Where-Object { $_.name -eq "AllowAppToWeb" }
+                $internetRuleExists = $existingRules | Where-Object { $_.name -eq "AllowAppFromInternet" }
                 
                 if (-not $inboundRuleExists) {
                     az network nsg rule create --nsg-name $NsgName --resource-group $ResourceGroup --name "AllowAppFromWeb" --priority 100 --source-address-prefixes $WebSubnetCidr --destination-port-ranges 3000-9000 --access Allow --protocol Tcp --direction Inbound | Out-Null
-                    Write-ColorOutput "  Added missing app inbound rule" "Green"
+                    Write-ColorOutput "  Added app inbound rule from web" "Green"
                 }
                 if (-not $outboundRuleExists) {
                     az network nsg rule create --nsg-name $NsgName --resource-group $ResourceGroup --name "AllowAppToWeb" --priority 101 --destination-address-prefixes $WebSubnetCidr --source-port-ranges "*" --destination-port-ranges 3000-9000 --access Allow --protocol Tcp --direction Outbound | Out-Null
-                    Write-ColorOutput "  Added missing app outbound rule" "Green"
+                    Write-ColorOutput "  Added app outbound rule to web" "Green"
+                }
+                if (-not $internetRuleExists) {
+                    az network nsg rule create --nsg-name $NsgName --resource-group $ResourceGroup --name "AllowAppFromInternet" --priority 110 --source-address-prefixes "*" --destination-port-ranges 3000-9000 --access Allow --protocol Tcp --direction Inbound | Out-Null
+                    Write-ColorOutput "  Added app inbound rule from internet" "Green"
                 }
             }
             "web" {
@@ -379,7 +384,7 @@ function New-NetworkSecurityGroup {
                 
                 if (-not $httpRuleExists) {
                     az network nsg rule create --nsg-name $NsgName --resource-group $ResourceGroup --name "AllowHTTPFromInternet" --priority 100 --source-address-prefixes "*" --destination-port-ranges "80,443" --access Allow --protocol Tcp --direction Inbound | Out-Null
-                    Write-ColorOutput "  Added missing HTTP/HTTPS rule" "Green"
+                    Write-ColorOutput "  Added  HTTP/HTTPS rule" "Green"
                 }
             }
         }
@@ -415,11 +420,13 @@ function New-NetworkSecurityGroup {
                 # Allow app traffic from web subnet (ports 3000-9000)
                 az network nsg rule create --nsg-name $NsgName --resource-group $ResourceGroup --name "AllowAppFromWeb" --priority 100 --source-address-prefixes $WebSubnetCidr --destination-port-ranges 3000-9000 --access Allow --protocol Tcp --direction Inbound | Out-Null
                 az network nsg rule create --nsg-name $NsgName --resource-group $ResourceGroup --name "AllowAppToWeb" --priority 101 --destination-address-prefixes $WebSubnetCidr --source-port-ranges "*" --destination-port-ranges 3000-9000 --access Allow --protocol Tcp --direction Outbound | Out-Null
-                Write-ColorOutput "  Added application rules for app subnet" "Green"
+                # Allow app traffic from internet (ports 80,443)
+                az network nsg rule create --nsg-name $NsgName --resource-group $ResourceGroup --name "AllowAppFromInternet" --priority 110 --source-address-prefixes "*" --destination-port-ranges 80,443 --access Allow --protocol Tcp --direction Inbound | Out-Null
+                Write-ColorOutput "  Added application rules for app subnet (including internet access)" "Green"
             }
             "web" {
                 # Allow HTTP/HTTPS traffic from internet on standard ports only
-                az network nsg rule create --nsg-name $NsgName --resource-group $ResourceGroup --name "AllowHTTPFromInternet" --priority 100 --source-address-prefixes "*" --destination-port-ranges "80,443" --access Allow --protocol Tcp --direction Inbound | Out-Null
+                az network nsg rule create --nsg-name $NsgName --resource-group $ResourceGroup --name "AllowHTTPFromInternet" --priority 100 --source-address-prefixes "*" --destination-port-ranges 80,443 --access Allow --protocol Tcp --direction Inbound | Out-Null
                 Write-ColorOutput "  Added HTTP/HTTPS rules for web subnet" "Green"
             }
             default {
@@ -739,38 +746,31 @@ function Get-SubnetCidrs {
     
     # Handle different VNet sizes
     if ($vnetPrefix -eq 24) {
-        # For /24 VNet, create subnets with app getting most space, private endpoints medium, web least
-        Write-ColorOutput "VNet is /24 - creating subnets with optimized sizing (app: /25, private endpoints: /27, web: /28)" "Yellow"
+        # For /24 VNet, create subnets with app and web as /26, private endpoints as /27
+        Write-ColorOutput "VNet is /24 - creating subnets with app: /26, web: /26, private endpoints: /27" "Yellow"
         
         $baseIp = "$($octets[0]).$($octets[1]).$($octets[2])"
-        $appSubnetCidr = "$baseIp.0/25"                 # .0 to .127 (128 addresses)
+        $appSubnetCidr = "$baseIp.0/26"                 # .0 to .63 (64 addresses)
+        $webSubnetCidr = "$baseIp.64/26"                # .64 to .127 (64 addresses)
         $privateEndpointsSubnetCidr = "$baseIp.128/27"  # .128 to .159 (32 addresses)
-        $webSubnetCidr = "$baseIp.160/28"               # .160 to .175 (16 addresses)
         
     } elseif ($vnetPrefix -le 22) {
-        # For /22 or larger VNet, create three /24 subnets
-        Write-ColorOutput "VNet is /$vnetPrefix - creating three /24 subnets" "Yellow"
-        
-        # Calculate subnet base addresses by incrementing the third octet
-        $privateEndpointsSubnetBase = "$($octets[0]).$($octets[1]).$($octets[2]).0"
-        $appSubnetBase = "$($octets[0]).$($octets[1]).$([int]$octets[2] + 1).0"
-        $webSubnetBase = "$($octets[0]).$($octets[1]).$([int]$octets[2] + 2).0"
-        
-        $privateEndpointsSubnetCidr = "$privateEndpointsSubnetBase/24"
-        $appSubnetCidr = "$appSubnetBase/24"
-        $webSubnetCidr = "$webSubnetBase/24"
-        
-    } elseif ($vnetPrefix -eq 23) {
-        # For /23 VNet, create subnets within the two available /24 blocks
-        Write-ColorOutput "VNet is /23 - creating mixed subnet sizes" "Yellow"
+        # For /22 or larger VNet, create app and web as /26, private endpoints as /26
+        Write-ColorOutput "VNet is /$vnetPrefix - creating app: /26, web: /26, private endpoints: /26" "Yellow"
         
         $baseIp = "$($octets[0]).$($octets[1]).$($octets[2])"
-        $privateEndpointsSubnetCidr = "$baseIp.0/25"     # .0 to .127
-        $appSubnetCidr = "$baseIp.128/25"                # .128 to .255
+        $appSubnetCidr = "$baseIp.0/26"                 # .0 to .63 (64 addresses)
+        $webSubnetCidr = "$baseIp.64/26"                # .64 to .127 (64 addresses)
+        $privateEndpointsSubnetCidr = "$baseIp.128/26"  # .128 to .191 (64 addresses)
         
-        # Use the next /24 block for web subnet
-        $nextOctet = [int]$octets[2] + 1
-        $webSubnetCidr = "$($octets[0]).$($octets[1]).$nextOctet.0/24"
+    } elseif ($vnetPrefix -eq 23) {
+        # For /23 VNet, create app and web as /26, private endpoints as /26
+        Write-ColorOutput "VNet is /23 - creating app: /26, web: /26, private endpoints: /26" "Yellow"
+        
+        $baseIp = "$($octets[0]).$($octets[1]).$($octets[2])"
+        $appSubnetCidr = "$baseIp.0/26"                 # .0 to .63 (64 addresses)
+        $webSubnetCidr = "$baseIp.64/26"                # .64 to .127 (64 addresses)
+        $privateEndpointsSubnetCidr = "$baseIp.128/26"  # .128 to .191 (64 addresses)
         
     } else {
         # VNet prefix is between 25-32, too small for three subnets

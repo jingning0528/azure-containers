@@ -54,24 +54,3 @@ output "log_analytics_workspace_name" {
   description = "Name of the Log Analytics Workspace"
   value       = azurerm_log_analytics_workspace.main.name
 }
-
-# APIM Outputs
-output "apim_gateway_url" {
-  description = "APIM Gateway URL"
-  value       = azurerm_api_management.main.gateway_url
-}
-
-output "apim_management_api_url" {
-  description = "APIM Management API URL"
-  value       = azurerm_api_management.main.management_api_url
-}
-
-output "apim_name" {
-  description = "Name of the API Management instance"
-  value       = azurerm_api_management.main.name
-}
-
-output "apim_private_ip_addresses" {
-  description = "Private IP addresses of the APIM instance"
-  value       = azurerm_api_management.main.private_ip_addresses
-}

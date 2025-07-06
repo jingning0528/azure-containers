@@ -136,6 +136,7 @@ variable "apim_publisher_name" {
 variable "apim_publisher_email" {
   description = "APIM publisher email"
   type        = string
+  default     = "apipublisher@example.com"
 }
 
 variable "apim_sku_name" {

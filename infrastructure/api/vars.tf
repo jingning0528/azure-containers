@@ -119,3 +119,33 @@ variable "common_tags" {
   type        = map(string)
   default     = {}
 }
+
+# APIM Variables
+variable "web_subnet_name" {
+  description = "Name of the web subnet for APIM deployment"
+  type        = string
+  default = "web-subnet"
+}
+
+variable "apim_publisher_name" {
+  description = "APIM publisher name"
+  type        = string
+  default     = "API Publisher"
+}
+
+variable "apim_publisher_email" {
+  description = "APIM publisher email"
+  type        = string
+}
+
+variable "apim_sku_name" {
+  description = "APIM SKU name (e.g., Developer_1, Standard_1)"
+  type        = string
+  default     = "Developer_1"
+}
+
+variable "apim_subscription_required" {
+  description = "Whether APIM subscription is required for API access"
+  type        = bool
+  default     = false
+}

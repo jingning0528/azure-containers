@@ -37,6 +37,7 @@ resource "azurerm_resource_group" "api" {
 
 # Container Apps Environment v2 with workload profiles and VNet integration
 resource "azurerm_container_app_environment" "main" {
+  infrastructure_resource_group_name = "ME_${var.app_name}-containerapp"
   name                           = "${var.app_name}-containerapp"
   location                       = var.location
   resource_group_name            = azurerm_resource_group.api.name

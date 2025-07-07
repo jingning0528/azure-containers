@@ -127,6 +127,18 @@ resource "azurerm_postgresql_flexible_server_configuration" "log_statement" {
   ]
 }
 
+# Enable PostGIS extension
+resource "azurerm_postgresql_flexible_server_configuration" "azure_extensions" {
+  name      = "azure.extensions"
+  server_id = azurerm_postgresql_flexible_server.main.id
+  value     = "POSTGIS"
+  
+  depends_on = [
+    time_sleep.wait_for_postgresql,
+    azurerm_postgresql_flexible_server_configuration.shared_preload_libraries
+  ]
+}
+
 # Create the main resource group for all application resources
 resource "azurerm_resource_group" "main" {
   name     = var.resource_group_name

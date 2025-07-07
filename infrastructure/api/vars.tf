@@ -104,6 +104,12 @@ variable "create_container_registry" {
   default     = false
 }
 
+variable "enable_psql_sidecar" {
+  description = "Whether to enable the PostgreSQL client sidecar container"
+  type        = bool
+  default     = true
+}
+
 variable "subscription_id" {
   description = "Azure subscription ID"
   type        = string

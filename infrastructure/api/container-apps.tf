@@ -258,6 +258,45 @@ resource "azurerm_container_app" "api" {
         port      = 3000
       }
     }
+
+    # Conditionally add PostgreSQL client sidecar container
+    dynamic "container" {
+      for_each = var.enable_psql_sidecar ? [1] : []
+      content {
+        name   = "${var.app_name}-psql-client"
+        image  = "ghcr.io/bcgov/nr-containers/alpine:3.22"
+        cpu    = "0.25"
+        memory = "0.5Gi"
+        command = ["/bin/sh"]
+        args    = ["-c", "echo 'PostgreSQL sidecar started. Keeping container alive...'; while true; do sleep 360000; done"]
+
+        env {
+          name  = "APP_NAME"
+          value = var.app_name
+        }
+
+        # Add database connection environment variables
+        env {
+          name        = "POSTGRES_HOST"
+          secret_name = "postgres-host"
+        }
+
+        env {
+          name        = "POSTGRES_USER"
+          secret_name = "postgres-user"
+        }
+
+        env {
+          name        = "POSTGRES_PASSWORD"
+          secret_name = "postgres-password"
+        }
+
+        env {
+          name        = "POSTGRES_DATABASE"
+          secret_name = "postgres-database"
+        }
+      }
+    }
   }
 
   secret {

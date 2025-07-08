@@ -404,17 +404,33 @@ resource "azurerm_key_vault" "app_gateway" {
   tenant_id           = data.azurerm_client_config.current.tenant_id
   sku_name            = "standard"
 
-  # Landing Zone compliance - disable public access
-  public_network_access_enabled = false
+  # Landing Zone compliance - restrict public access via network ACLs
+  # Application Gateway requires public access to Key Vault for SSL certificates
+  public_network_access_enabled = true
   
   # Enable for template deployment to allow Application Gateway access
   enabled_for_deployment          = false
   enabled_for_disk_encryption     = false
   enabled_for_template_deployment = true
 
-  # Soft delete settings
-  soft_delete_retention_days = 7
-  purge_protection_enabled   = false
+  # Policy compliance - deletion protection settings
+  soft_delete_retention_days = 1
+  purge_protection_enabled   = true
+
+  # Policy compliance - use Azure RBAC instead of access policies
+  enable_rbac_authorization = true
+
+  # Policy compliance - Key Vault firewall configuration
+  # Allow Application Gateway subnet access for SSL certificate retrieval
+  network_acls {
+    default_action = "Deny"
+    bypass         = "AzureServices"
+    
+    # Allow access from the web subnet where Application Gateway is deployed
+    virtual_network_subnet_ids = [
+      data.azurerm_subnet.web.id
+    ]
+  }
 
   tags = var.common_tags
   lifecycle {
@@ -425,12 +441,12 @@ resource "azurerm_key_vault" "app_gateway" {
   }
 }
 
-# Private endpoint for Key Vault (placed in web subnet for Application Gateway access)
+# Private endpoint for Key Vault (placed in private endpoint subnet for management access)
 resource "azurerm_private_endpoint" "key_vault" {
   name                = "${var.app_name}-kv-pe"
   location            = var.location
   resource_group_name = azurerm_resource_group.api.name
-  subnet_id           = data.azurerm_subnet.web.id
+  subnet_id           = data.azurerm_subnet.private_endpoint.id
 
   private_service_connection {
     name                           = "${var.app_name}-kv-psc"
@@ -448,21 +464,17 @@ resource "azurerm_private_endpoint" "key_vault" {
   }
 }
 
-# Grant Application Gateway managed identity access to Key Vault
-resource "azurerm_key_vault_access_policy" "app_gateway" {
-  key_vault_id = azurerm_key_vault.app_gateway.id
-  tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = azurerm_user_assigned_identity.container_apps.principal_id
+# Grant Application Gateway managed identity access to Key Vault using RBAC
+resource "azurerm_role_assignment" "key_vault_secrets_user" {
+  scope                = azurerm_key_vault.app_gateway.id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_user_assigned_identity.container_apps.principal_id
+}
 
-  certificate_permissions = [
-    "Get",
-    "List"
-  ]
-
-  secret_permissions = [
-    "Get",
-    "List"
-  ]
+resource "azurerm_role_assignment" "key_vault_certificate_user" {
+  scope                = azurerm_key_vault.app_gateway.id
+  role_definition_name = "Key Vault Certificate User"
+  principal_id         = azurerm_user_assigned_identity.container_apps.principal_id
 }
 
 # Azure managed certificate (requires domain validation)
@@ -472,7 +484,8 @@ resource "azurerm_key_vault_certificate" "app_gateway" {
 
   certificate_policy {
     issuer_parameters {
-      name = "Self"
+      # Policy compliance - use integrated certificate authority
+      name = "DigiCert"
     }
 
     key_properties {
@@ -488,7 +501,8 @@ resource "azurerm_key_vault_certificate" "app_gateway" {
       }
 
       trigger {
-        days_before_expiry = 30
+        # Policy compliance - trigger at specific percentage (80%)
+        lifetime_percentage = 80
       }
     }
 
@@ -499,6 +513,7 @@ resource "azurerm_key_vault_certificate" "app_gateway" {
     x509_certificate_properties {
       # Update this with your actual domain
       subject            = "CN=${var.ssl_certificate_domain}"
+      # Policy compliance - set expiration date (12 months max)
       validity_in_months = 12
 
       subject_alternative_names {
@@ -522,7 +537,8 @@ resource "azurerm_key_vault_certificate" "app_gateway" {
   }
 
   depends_on = [
-    azurerm_key_vault_access_policy.app_gateway
+    azurerm_role_assignment.key_vault_secrets_user,
+    azurerm_role_assignment.key_vault_certificate_user
   ]
 
   tags = var.common_tags
@@ -593,6 +609,12 @@ resource "azurerm_application_gateway" "main" {
     }
   }
 
+  http_listener {
+    name                           = "${var.app_name}-appGwHttpListener"
+    frontend_ip_configuration_name = "${var.app_name}-appGwPublicFrontendIp"
+    frontend_port_name             = "port_80"
+    protocol                       = "Http"
+  }
 
   http_listener {
     name                           = "${var.app_name}-appGwHttpsListener"
@@ -660,6 +682,7 @@ resource "azurerm_application_gateway" "main" {
   depends_on = [
     azurerm_container_app.api,
     azurerm_key_vault_certificate.app_gateway,
-    azurerm_key_vault_access_policy.app_gateway
+    azurerm_role_assignment.key_vault_secrets_user,
+    azurerm_role_assignment.key_vault_certificate_user
   ]
 }

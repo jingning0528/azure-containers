@@ -414,7 +414,7 @@ resource "azurerm_key_vault" "app_gateway" {
   enabled_for_template_deployment = true
 
   # Policy compliance - deletion protection settings
-  soft_delete_retention_days = 1
+  soft_delete_retention_days = 7
   purge_protection_enabled   = true
 
   # Policy compliance - use Azure RBAC instead of access policies

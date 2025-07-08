@@ -61,7 +61,12 @@ output "application_gateway_fqdn" {
   value       = azurerm_public_ip.app_gateway.fqdn
 }
 
+output "application_gateway_public_ip" {
+  description = "Public IP address of the Application Gateway"
+  value       = azurerm_public_ip.app_gateway.ip_address
+}
+
 output "application_gateway_url" {
   description = "URL of the Application Gateway"
-  value       = "https://${azurerm_public_ip.app_gateway.fqdn}"
+  value       = azurerm_public_ip.app_gateway.fqdn != null ? "https://${azurerm_public_ip.app_gateway.fqdn}" : "https://${azurerm_public_ip.app_gateway.ip_address}"
 }

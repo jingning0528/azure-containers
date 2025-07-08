@@ -54,3 +54,14 @@ output "log_analytics_workspace_name" {
   description = "Name of the Log Analytics Workspace"
   value       = azurerm_log_analytics_workspace.main.name
 }
+
+
+output "application_gateway_fqdn" {
+  description = "FQDN of the Application Gateway public IP"
+  value       = azurerm_public_ip.app_gateway.fqdn
+}
+
+output "application_gateway_url" {
+  description = "URL of the Application Gateway"
+  value       = "https://${azurerm_public_ip.app_gateway.fqdn}"
+}

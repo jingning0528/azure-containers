@@ -7,6 +7,11 @@ data "azurerm_virtual_network" "main" {
   name                = var.vnet_name
   resource_group_name = var.vnet_resource_group_name
 }
+data "azurerm_subnet" "private_endpoint" {
+  name                 = var.private_endpoint_subnet_name
+  virtual_network_name = data.azurerm_virtual_network.main.name
+  resource_group_name  = var.vnet_resource_group_name
+}
 
 # Data source for existing subnet for Container Apps
 data "azurerm_subnet" "container_apps" {
@@ -337,4 +342,324 @@ resource "azurerm_container_app" "api" {
       tags
     ]
   }
+}
+
+# Public IP for Application Gateway
+resource "azurerm_public_ip" "app_gateway" {
+  name                = "qaca-api-tools-gw"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.api.name
+  allocation_method   = "Static"
+  sku                 = "Standard"
+  zones               = ["1", "2", "3"]
+
+  tags = var.common_tags
+  lifecycle {
+    ignore_changes = [ 
+      # Ignore tags to allow management via Azure Policy
+      tags
+    ]
+  }
+}
+
+# WAF Policy for Application Gateway
+resource "azurerm_web_application_firewall_policy" "main" {
+  name                = "${var.app_name}-waf-policy"
+  resource_group_name = azurerm_resource_group.api.name
+  location            = var.location
+
+  policy_settings {
+    enabled                     = true
+    mode                       = "Prevention"
+    request_body_check         = true
+    file_upload_limit_in_mb    = 100
+    max_request_body_size_in_kb = 128
+  }
+
+  managed_rules {
+    managed_rule_set {
+      type    = "OWASP"
+      version = "3.2"
+    }
+    managed_rule_set {
+      type    = "Microsoft_BotManagerRuleSet"
+      version = "1.0"
+    }
+  }
+
+  tags = var.common_tags
+  lifecycle {
+    ignore_changes = [ 
+      # Ignore tags to allow management via Azure Policy
+      tags
+    ]
+  }
+}
+
+# Key Vault for storing SSL certificates
+resource "azurerm_key_vault" "app_gateway" {
+  name                = "${replace(var.app_name, "-", "")}appgwkv"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.api.name
+  tenant_id           = data.azurerm_client_config.current.tenant_id
+  sku_name            = "standard"
+
+  # Landing Zone compliance - disable public access
+  public_network_access_enabled = false
+  
+  # Enable for template deployment to allow Application Gateway access
+  enabled_for_deployment          = false
+  enabled_for_disk_encryption     = false
+  enabled_for_template_deployment = true
+
+  # Soft delete settings
+  soft_delete_retention_days = 7
+  purge_protection_enabled   = false
+
+  tags = var.common_tags
+  lifecycle {
+    ignore_changes = [ 
+      # Ignore tags to allow management via Azure Policy
+      tags
+    ]
+  }
+}
+
+# Private endpoint for Key Vault (placed in web subnet for Application Gateway access)
+resource "azurerm_private_endpoint" "key_vault" {
+  name                = "${var.app_name}-kv-pe"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.api.name
+  subnet_id           = data.azurerm_subnet.web.id
+
+  private_service_connection {
+    name                           = "${var.app_name}-kv-psc"
+    private_connection_resource_id = azurerm_key_vault.app_gateway.id
+    subresource_names              = ["vault"]
+    is_manual_connection           = false
+  }
+
+  tags = var.common_tags
+  lifecycle {
+    ignore_changes = [ 
+      # Ignore tags to allow management via Azure Policy
+      tags
+    ]
+  }
+}
+
+# Grant Application Gateway managed identity access to Key Vault
+resource "azurerm_key_vault_access_policy" "app_gateway" {
+  key_vault_id = azurerm_key_vault.app_gateway.id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = azurerm_user_assigned_identity.container_apps.principal_id
+
+  certificate_permissions = [
+    "Get",
+    "List"
+  ]
+
+  secret_permissions = [
+    "Get",
+    "List"
+  ]
+}
+
+# Azure managed certificate (requires domain validation)
+resource "azurerm_key_vault_certificate" "app_gateway" {
+  name         = "${var.app_name}-ssl-cert"
+  key_vault_id = azurerm_key_vault.app_gateway.id
+
+  certificate_policy {
+    issuer_parameters {
+      name = "Self"
+    }
+
+    key_properties {
+      exportable = true
+      key_size   = 2048
+      key_type   = "RSA"
+      reuse_key  = true
+    }
+
+    lifetime_action {
+      action {
+        action_type = "AutoRenew"
+      }
+
+      trigger {
+        days_before_expiry = 30
+      }
+    }
+
+    secret_properties {
+      content_type = "application/x-pkcs12"
+    }
+
+    x509_certificate_properties {
+      # Update this with your actual domain
+      subject            = "CN=${var.ssl_certificate_domain}"
+      validity_in_months = 12
+
+      subject_alternative_names {
+        dns_names = [var.ssl_certificate_domain]
+      }
+
+      key_usage = [
+        "cRLSign",
+        "dataEncipherment",
+        "digitalSignature",
+        "keyAgreement",
+        "keyCertSign",
+        "keyEncipherment",
+      ]
+
+      extended_key_usage = [
+        "1.3.6.1.5.5.7.3.1",
+        "1.3.6.1.5.5.7.3.2",
+      ]
+    }
+  }
+
+  depends_on = [
+    azurerm_key_vault_access_policy.app_gateway
+  ]
+
+  tags = var.common_tags
+}
+
+# Application Gateway v2 with WAF
+resource "azurerm_application_gateway" "main" {
+  name                = "${var.app_name}-appgw"
+  resource_group_name = azurerm_resource_group.api.name
+  location            = var.location
+
+  sku {
+    name     = "WAF_v2"
+    tier     = "WAF_v2"
+    capacity = 2
+  }
+
+  zones = ["1", "2", "3"]
+
+  gateway_ip_configuration {
+    name      = "appGatewayIpConfig"
+    subnet_id = data.azurerm_subnet.web.id
+  }
+
+  frontend_port {
+    name = "port_80"
+    port = 80
+  }
+
+  frontend_port {
+    name = "port_443"
+    port = 443
+  }
+
+  frontend_ip_configuration {
+    name                 = "${var.app_name}-appGwPublicFrontendIp"
+    public_ip_address_id = azurerm_public_ip.app_gateway.id
+  }
+
+  backend_address_pool {
+    name  = "${var.app_name}-containerapp-backend-pool"
+    fqdns = [azurerm_container_app.api.latest_revision_fqdn]
+  }
+
+  backend_http_settings {
+    name                  = "${var.app_name}-containerapp-backend-http-settings"
+    cookie_based_affinity = "Disabled"
+    path                  = "/"
+    port                  = 443
+    protocol              = "Https"
+    request_timeout       = 60
+    pick_host_name_from_backend_address = true
+
+    probe_name = "${var.app_name}-containerapp-health-probe"
+  }
+
+  probe {
+    name                                      = "${var.app_name}-containerapp-health-probe"
+    protocol                                  = "Https"
+    path                                      = "/api/health"
+    interval                                  = 30
+    timeout                                   = 30
+    unhealthy_threshold                       = 3
+    pick_host_name_from_backend_http_settings = true
+
+    match {
+      status_code = ["200-201"]
+    }
+  }
+
+
+  http_listener {
+    name                           = "${var.app_name}-appGwHttpsListener"
+    frontend_ip_configuration_name = "${var.app_name}-appGwPublicFrontendIp"
+    frontend_port_name             = "port_443"
+    protocol                       = "Https"
+    ssl_certificate_name           = "${var.app_name}-appgw-ssl-cert"
+  }
+
+  # Azure managed SSL certificate
+  ssl_certificate {
+    name                = "${var.app_name}-appgw-ssl-cert"
+    key_vault_secret_id = azurerm_key_vault_certificate.app_gateway.secret_id
+  }
+
+  request_routing_rule {
+    name                       = "http-to-https-redirect"
+    rule_type                  = "Basic"
+    http_listener_name         = "${var.app_name}-appGwHttpListener"
+    redirect_configuration_name = "http-to-https-redirect-config"
+    priority                   = 100
+  }
+
+  request_routing_rule {
+    name                       = "${var.app_name}-containerapp-routing-rule"
+    rule_type                  = "Basic"
+    http_listener_name         = "${var.app_name}-appGwHttpsListener"
+    backend_address_pool_name  = "${var.app_name}-containerapp-backend-pool"
+    backend_http_settings_name = "${var.app_name}-containerapp-backend-http-settings"
+    priority                   = 200
+  }
+
+  redirect_configuration {
+    name                 = "http-to-https-redirect-config"
+    redirect_type        = "Permanent"
+    target_listener_name = "${var.app_name}-appGwHttpsListener"
+    include_path         = true
+    include_query_string = true
+  }
+
+
+  firewall_policy_id = azurerm_web_application_firewall_policy.main.id
+
+  # Enable autoscaling
+  autoscale_configuration {
+    min_capacity = 2
+    max_capacity = 10
+  }
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.container_apps.id]
+  }
+
+  tags = var.common_tags
+  lifecycle {
+    ignore_changes = [ 
+      # Ignore tags to allow management via Azure Policy
+      tags,
+      # Ignore SSL certificate to allow for Azure managed certificate updates
+      ssl_certificate
+    ]
+  }
+
+  depends_on = [
+    azurerm_container_app.api,
+    azurerm_key_vault_certificate.app_gateway,
+    azurerm_key_vault_access_policy.app_gateway
+  ]
 }

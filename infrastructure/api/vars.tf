@@ -156,3 +156,15 @@ variable "apim_subscription_required" {
   type        = bool
   default     = false
 }
+
+variable "private_endpoint_subnet_name" {
+  description = "Name of the subnet for private endpoints"
+  type        = string
+  default     = "privateendpoints-subnet"
+  
+}
+variable "ssl_certificate_domain" {
+  description = "Domain name for SSL certificate (e.g., yourapp.yourdomain.com)"
+  type        = string
+  default     = "qaca-api-tools.azurewebsites.net"
+}

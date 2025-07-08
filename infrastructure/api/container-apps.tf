@@ -405,8 +405,8 @@ resource "azurerm_key_vault" "app_gateway" {
   sku_name            = "standard"
 
   # Landing Zone compliance - restrict public access via network ACLs
-  # Application Gateway requires public access to Key Vault for SSL certificates
-  public_network_access_enabled = true
+  # Use private endpoint only for Key Vault access
+  public_network_access_enabled = false
   
   # Enable for template deployment to allow Application Gateway access
   enabled_for_deployment          = false
@@ -419,18 +419,6 @@ resource "azurerm_key_vault" "app_gateway" {
 
   # Policy compliance - use Azure RBAC instead of access policies
   enable_rbac_authorization = true
-
-  # Policy compliance - Key Vault firewall configuration
-  # Allow Application Gateway subnet access for SSL certificate retrieval
-  network_acls {
-    default_action = "Deny"
-    bypass         = "AzureServices"
-    
-    # Allow access from the web subnet where Application Gateway is deployed
-    virtual_network_subnet_ids = [
-      data.azurerm_subnet.web.id
-    ]
-  }
 
   tags = var.common_tags
   lifecycle {

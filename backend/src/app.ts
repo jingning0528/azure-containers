@@ -26,7 +26,7 @@ export async function bootstrap() {
     prefix: "v",
   });
   const config = new DocumentBuilder()
-    .setTitle("Users example")
+    .setTitle("QuickStart API for Azure Containers - NestJS")
     .setDescription("The user API description")
     .setVersion("1.0")
     .addTag("users")

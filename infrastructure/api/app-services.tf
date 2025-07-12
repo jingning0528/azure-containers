@@ -672,17 +672,6 @@ resource "azurerm_monitor_autoscale_setting" "main" {
   }
 }
 
-# Diagnostic settings for App Service Plan (Landing Zone compliance)
-resource "azurerm_monitor_diagnostic_setting" "app_service_plan" {
-  name                       = "${var.app_name}-asp-diagnostics"
-  target_resource_id         = azurerm_service_plan.main.id
-  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
-
-  enabled_log {
-    category = "AppServicePlatformLogs"
-  }
-}
-
 # Diagnostic settings for API App Service (Landing Zone compliance)  
 resource "azurerm_monitor_diagnostic_setting" "api_app_service" {
   name                       = "${var.app_name}-api-diagnostics"

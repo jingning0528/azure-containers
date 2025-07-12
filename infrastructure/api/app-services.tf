@@ -158,7 +158,7 @@ resource "azurerm_linux_web_app" "api" {
     # Application stack for container
     application_stack {
       docker_image_name   = var.api_image
-      docker_registry_url = var.create_container_registry ? "https://${azurerm_container_registry.main[0].login_server}" : "https://index.docker.io"
+      docker_registry_url = var.create_container_registry ? "https://${azurerm_container_registry.main[0].login_server}" : "ghcr.io"
     }
 
     # Configure for container deployment
@@ -265,7 +265,7 @@ resource "azurerm_linux_web_app" "flyway" {
     # Application stack for container
     application_stack {
       docker_image_name   = var.flyway_image
-      docker_registry_url = var.create_container_registry ? "https://${azurerm_container_registry.main[0].login_server}" : "https://index.docker.io"
+      docker_registry_url = var.create_container_registry ? "https://${azurerm_container_registry.main[0].login_server}" : "ghcr.io"
     }
 
     # Configure for container deployment

@@ -42,6 +42,7 @@ variable "postgresql_server_fqdn" {
 variable "postgresql_admin_username" {
   description = "PostgreSQL admin username"
   type        = string
+  default     = "pgadmin"
 }
 
 variable "postgresql_admin_password" {
@@ -53,6 +54,7 @@ variable "postgresql_admin_password" {
 variable "database_name" {
   description = "Name of the database"
   type        = string
+  default     = "app"
 }
 
 variable "api_image" {
@@ -127,7 +129,7 @@ variable "common_tags" {
 variable "web_subnet_name" {
   description = "Name of the web subnet for APIM deployment"
   type        = string
-  default = "web-subnet"
+  default     = "web-subnet"
 }
 
 variable "apim_publisher_name" {
@@ -158,7 +160,7 @@ variable "private_endpoint_subnet_name" {
   description = "Name of the subnet for private endpoints"
   type        = string
   default     = "privateendpoints-subnet"
-  
+
 }
 variable "ssl_certificate_domain" {
   description = "Domain name for SSL certificate (e.g., yourapp.yourdomain.com)"

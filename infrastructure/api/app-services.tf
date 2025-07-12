@@ -111,6 +111,30 @@ resource "azurerm_role_assignment" "acr_pull" {
   principal_id         = azurerm_user_assigned_identity.container_apps.principal_id
 }
 
+# Private endpoint for Container Registry (Landing Zone compliance)
+resource "azurerm_private_endpoint" "container_registry" {
+  count               = var.create_container_registry ? 1 : 0
+  name                = "${var.app_name}-acr-pe"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.api.name
+  subnet_id           = data.azurerm_subnet.private_endpoint.id
+
+  private_service_connection {
+    name                           = "${var.app_name}-acr-psc"
+    private_connection_resource_id = azurerm_container_registry.main[0].id
+    subresource_names              = ["registry"]
+    is_manual_connection           = false
+  }
+
+  tags = var.common_tags
+  lifecycle {
+    ignore_changes = [
+      # Ignore tags to allow management via Azure Policy
+      tags
+    ]
+  }
+}
+
 # App Service Plan for container-based applications
 resource "azurerm_service_plan" "main" {
   name                = "${var.app_name}-asp"
@@ -154,11 +178,12 @@ resource "azurerm_linux_web_app" "api" {
     
     # Health check configuration
     health_check_path                 = "/api/health"
+    health_check_eviction_time_in_min = 2
     
     # Application stack for container
     application_stack {
       docker_image_name   = var.api_image
-      docker_registry_url = var.create_container_registry ? "https://${azurerm_container_registry.main[0].login_server}" : "ghcr.io"
+      docker_registry_url = var.create_container_registry ? "https://${azurerm_container_registry.main[0].login_server}" : "https://ghcr.io"
     }
 
     # Configure for container deployment
@@ -265,7 +290,7 @@ resource "azurerm_linux_web_app" "flyway" {
     # Application stack for container
     application_stack {
       docker_image_name   = var.flyway_image
-      docker_registry_url = var.create_container_registry ? "https://${azurerm_container_registry.main[0].login_server}" : "ghcr.io"
+      docker_registry_url = var.create_container_registry ? "https://${azurerm_container_registry.main[0].login_server}" : "https://ghcr.io"
     }
 
     # Configure for container deployment
@@ -638,19 +663,46 @@ resource "azurerm_monitor_autoscale_setting" "main" {
     }
   }
 
-  notification {
-    email {
-      send_to_subscription_administrator    = true
-      send_to_subscription_co_administrator = true
-    }
-  }
-
   tags = var.common_tags
   lifecycle {
     ignore_changes = [
       # Ignore tags to allow management via Azure Policy
       tags
     ]
+  }
+}
+
+# Diagnostic settings for App Service Plan (Landing Zone compliance)
+resource "azurerm_monitor_diagnostic_setting" "app_service_plan" {
+  name                       = "${var.app_name}-asp-diagnostics"
+  target_resource_id         = azurerm_service_plan.main.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+
+  enabled_log {
+    category = "AppServicePlatformLogs"
+  }
+}
+
+# Diagnostic settings for API App Service (Landing Zone compliance)  
+resource "azurerm_monitor_diagnostic_setting" "api_app_service" {
+  name                       = "${var.app_name}-api-diagnostics"
+  target_resource_id         = azurerm_linux_web_app.api.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+
+  enabled_log {
+    category = "AppServiceHTTPLogs"
+  }
+
+  enabled_log {
+    category = "AppServiceConsoleLogs"
+  }
+
+  enabled_log {
+    category = "AppServiceAppLogs"
+  }
+
+  enabled_log {
+    category = "AppServicePlatformLogs"
   }
 }
 

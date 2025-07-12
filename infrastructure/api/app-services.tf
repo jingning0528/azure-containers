@@ -143,7 +143,7 @@ resource "azurerm_service_plan" "main" {
   resource_group_name = azurerm_resource_group.api.name
   location            = var.location
   os_type             = "Linux"
-  sku_name            = "P1v3"  # Premium v3 for container support and VNet integration
+  sku_name            = "B1v3"
 
   tags = var.common_tags
   lifecycle {

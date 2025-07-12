@@ -33,6 +33,11 @@ output "log_analytics_workspace_name" {
   description = "Name of the Log Analytics Workspace"
   value       = azurerm_log_analytics_workspace.main.name
 }
+# Outputs for App Services configuration
+output "app_service_url" {
+  description = "The URL of the App Service"
+  value       = "https://${azurerm_linux_web_app.api.default_hostname}"
+}
 /* 
 
 output "application_gateway_fqdn" {

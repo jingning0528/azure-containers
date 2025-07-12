@@ -130,7 +130,9 @@ resource "azurerm_private_endpoint" "container_registry" {
   lifecycle {
     ignore_changes = [
       # Ignore tags to allow management via Azure Policy
-      tags
+      tags,
+      # Ignore private DNS zone group as it's managed by Azure Policy
+      private_dns_zone_group
     ]
   }
 }
@@ -175,6 +177,9 @@ resource "azurerm_linux_web_app" "api" {
     always_on                         = true
     container_registry_use_managed_identity = true
     container_registry_managed_identity_client_id = azurerm_user_assigned_identity.container_apps.client_id
+    
+    # Security - Use latest TLS version
+    minimum_tls_version               = "1.3"
     
     # Health check configuration
     health_check_path                 = "/api/health"
@@ -286,6 +291,9 @@ resource "azurerm_linux_web_app" "flyway" {
     always_on                         = false  # Can be turned off for migration jobs
     container_registry_use_managed_identity = true
     container_registry_managed_identity_client_id = azurerm_user_assigned_identity.container_apps.client_id
+    
+    # Security - Use latest TLS version
+    minimum_tls_version               = "1.3"
     
     # Application stack for container
     application_stack {
@@ -601,7 +609,9 @@ resource "azurerm_private_endpoint" "app_service" {
   lifecycle {
     ignore_changes = [
       # Ignore tags to allow management via Azure Policy
-      tags
+      tags,
+      # Ignore private DNS zone group as it's managed by Azure Policy
+      private_dns_zone_group
     ]
   }
 }

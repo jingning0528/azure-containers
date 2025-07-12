@@ -1,5 +1,5 @@
-# Azure Container Apps for API backend
-
+# COMMENTED OUT - Shared resources now defined in app-services.tf
+/*
 data "azurerm_client_config" "current" {}
 
 # Data source for existing virtual network
@@ -39,7 +39,12 @@ resource "azurerm_resource_group" "api" {
     ]
   }
 }
+*/
 
+# COMMENTED OUT - Using App Services instead
+# Uncomment these when switching back to Container Apps
+
+/*
 # Container Apps Environment v2 with workload profiles and VNet integration
 resource "azurerm_container_app_environment" "main" {
   infrastructure_resource_group_name = "ME_${var.app_name}-containerapp"
@@ -69,6 +74,8 @@ resource "azurerm_container_app_environment" "main" {
   }
 }
 
+# COMMENTED OUT - These resources are now in app-services.tf
+/*
 # Log Analytics Workspace for Container Apps
 resource "azurerm_log_analytics_workspace" "main" {
   name                = "${var.app_name}-logs"
@@ -139,7 +146,9 @@ resource "azurerm_role_assignment" "acr_pull" {
   role_definition_name = "AcrPull"
   principal_id         = azurerm_user_assigned_identity.container_apps.principal_id
 }
+*/
 
+/*
 # Container App for API Backend
 resource "azurerm_container_app" "api" {
   name                         = "${var.app_name}-api"
@@ -396,6 +405,8 @@ resource "azurerm_web_application_firewall_policy" "main" {
   }
 }
 
+# COMMENTED OUT - Key Vault and related resources now in app-services.tf
+/*
 # Key Vault for storing SSL certificates
 resource "azurerm_key_vault" "app_gateway" {
   name                = "${replace(var.app_name, "-", "")}appgwkv"
@@ -464,7 +475,10 @@ resource "azurerm_role_assignment" "key_vault_certificate_user" {
   role_definition_name = "Key Vault Certificate User"
   principal_id         = azurerm_user_assigned_identity.container_apps.principal_id
 }
+*/
 
+# COMMENTED OUT - Certificate and Application Gateway resources for Container Apps
+/*
 # Azure managed certificate (requires domain validation)
 resource "azurerm_key_vault_certificate" "app_gateway" {
   name         = "${var.app_name}-ssl-cert"
@@ -531,8 +545,10 @@ resource "azurerm_key_vault_certificate" "app_gateway" {
 
   tags = var.common_tags
 }
+*/
 
-# Application Gateway v2 with WAF
+# COMMENTED OUT - Application Gateway configuration for Container Apps
+/*
 resource "azurerm_application_gateway" "main" {
   name                = "${var.app_name}-appgw"
   resource_group_name = azurerm_resource_group.api.name
@@ -674,3 +690,6 @@ resource "azurerm_application_gateway" "main" {
     azurerm_role_assignment.key_vault_certificate_user
   ]
 }
+*/
+
+# End of commented Container Apps configuration

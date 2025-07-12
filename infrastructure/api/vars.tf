@@ -37,13 +37,11 @@ variable "container_apps_subnet_name" {
 variable "postgresql_server_fqdn" {
   description = "FQDN of the PostgreSQL server"
   type        = string
-  default = "example.database.azure.com" # makes the terraform plan work without a real server
 }
 
 variable "postgresql_admin_username" {
   description = "PostgreSQL admin username"
   type        = string
-  default = "pgadmin"
 }
 
 variable "postgresql_admin_password" {
@@ -55,7 +53,6 @@ variable "postgresql_admin_password" {
 variable "database_name" {
   description = "Name of the database"
   type        = string
-  default     = "app"
 }
 
 variable "api_image" {
@@ -167,4 +164,47 @@ variable "ssl_certificate_domain" {
   description = "Domain name for SSL certificate (e.g., yourapp.yourdomain.com)"
   type        = string
   default     = "qaca-api-tools.azurewebsites.net"
+}
+
+# App Service Variables
+variable "custom_domain_name" {
+  description = "Custom domain name for Front Door (optional)"
+  type        = string
+  default     = ""
+}
+
+variable "dns_zone_id" {
+  description = "DNS Zone ID for custom domain validation"
+  type        = string
+  default     = ""
+}
+
+variable "enable_private_endpoint" {
+  description = "Enable private endpoint for App Service (recommended with Premium Front Door)"
+  type        = bool
+  default     = true
+}
+
+variable "app_service_sku" {
+  description = "App Service Plan SKU"
+  type        = string
+  default     = "P1v3"
+}
+
+variable "enable_app_service_logs" {
+  description = "Enable detailed logging for App Service"
+  type        = bool
+  default     = true
+}
+
+variable "waf_allowed_countries" {
+  description = "List of allowed country codes for WAF geo-blocking (ISO 3166-1 alpha-2)"
+  type        = list(string)
+  default     = ["CA", "US"]
+}
+
+variable "waf_rate_limit_threshold" {
+  description = "Rate limit threshold per minute for WAF"
+  type        = number
+  default     = 100
 }

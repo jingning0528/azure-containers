@@ -89,7 +89,7 @@ resource "azurerm_container_registry" "main" {
   name                = "${replace(var.app_name, "-", "")}acr"
   resource_group_name = azurerm_resource_group.api.name
   location            = var.location
-  sku                 = "B1"
+  sku                 = "Basic"
   admin_enabled       = false
 
   # Azure Landing Zone security requirements

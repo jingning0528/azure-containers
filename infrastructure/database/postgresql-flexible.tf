@@ -18,16 +18,16 @@ data "azurerm_subnet" "private_endpoints" {
 
 # PostgreSQL Flexible Server
 resource "azurerm_postgresql_flexible_server" "main" {
-  name                = "${var.app_name}"
+  name                = var.app_name
   resource_group_name = azurerm_resource_group.main.name
   location            = var.location
 
   administrator_login    = var.postgresql_admin_username
   administrator_password = var.db_master_password
 
-  sku_name   = var.postgresql_sku_name
-  version    = "16"
-  zone = "1"
+  sku_name                     = var.postgresql_sku_name
+  version                      = "16"
+  zone                         = "1"
   storage_mb                   = var.postgresql_storage_mb
   backup_retention_days        = var.backup_retention_period
   geo_redundant_backup_enabled = var.geo_redundant_backup_enabled
@@ -35,7 +35,7 @@ resource "azurerm_postgresql_flexible_server" "main" {
   # Not allowed to be public in Azure Landing Zone
   # Public network access is disabled to comply with Azure Landing Zone security requirements
   public_network_access_enabled = false
-  
+
   # High availability configuration
   dynamic "high_availability" {
     for_each = var.ha_enabled ? [1] : []
@@ -47,8 +47,8 @@ resource "azurerm_postgresql_flexible_server" "main" {
 
   # Auto-scaling configuration  
   auto_grow_enabled = var.auto_grow_enabled
-  tags = var.common_tags
-  
+  tags              = var.common_tags
+
   # Lifecycle block to handle automatic DNS zone associations by Azure Policy
   lifecycle {
     ignore_changes = [
@@ -112,7 +112,7 @@ resource "azurerm_postgresql_flexible_server_configuration" "shared_preload_libr
   name      = "shared_preload_libraries"
   server_id = azurerm_postgresql_flexible_server.main.id
   value     = "pg_stat_statements"
-  
+
   depends_on = [time_sleep.wait_for_postgresql]
 }
 
@@ -120,7 +120,7 @@ resource "azurerm_postgresql_flexible_server_configuration" "log_statement" {
   name      = "log_statement"
   server_id = azurerm_postgresql_flexible_server.main.id
   value     = "all"
-  
+
   depends_on = [
     time_sleep.wait_for_postgresql,
     azurerm_postgresql_flexible_server_configuration.shared_preload_libraries
@@ -132,7 +132,7 @@ resource "azurerm_postgresql_flexible_server_configuration" "azure_extensions" {
   name      = "azure.extensions"
   server_id = azurerm_postgresql_flexible_server.main.id
   value     = "POSTGIS"
-  
+
   depends_on = [
     time_sleep.wait_for_postgresql,
     azurerm_postgresql_flexible_server_configuration.shared_preload_libraries

@@ -83,9 +83,11 @@ jobs:
       run: |
         API_IMAGE="ghcr.io/${{ github.repository }}/backend:${{ inputs.tag }}"
         FLYWAY_IMAGE="ghcr.io/${{ github.repository }}/migrations:${{ inputs.tag }}"
+        FRONTEND_IMAGE="ghcr.io/${{ github.repository }}/frontend:${{ inputs.tag }}"
         
         echo "api-image=$API_IMAGE" >> $GITHUB_OUTPUT
         echo "flyway-image=$FLYWAY_IMAGE" >> $GITHUB_OUTPUT
+        echo "frontend-image=$FRONTEND_IMAGE" >> $GITHUB_OUTPUT
     
     - name: Terragrunt ${{inputs.command}}
       working-directory: terraform/${{ inputs.working_directory }}/${{ inputs.environment_name }}
@@ -103,6 +105,7 @@ jobs:
           db_master_password: ${{ secrets.DB_MASTER_PASSWORD }}
           repo_name: ${{ github.event.repository.name }}
           postgresql_server_fqdn: ${{ inputs.postgresql_server_fqdn }}
+          frontend_image: ${{ steps.image-tags.outputs.frontend-image }}
       run: |
           # Run terraform
           terragrunt run-all ${{inputs.command}} --terragrunt-non-interactive
@@ -124,6 +127,7 @@ jobs:
           azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
           db_master_password: ${{ secrets.DB_MASTER_PASSWORD }}
           repo_name: ${{ github.event.repository.name }}
+          frontend_image: ${{ steps.image-tags.outputs.frontend-image }}
       run: |
           terragrunt output -json > outputs.json
           #print the output

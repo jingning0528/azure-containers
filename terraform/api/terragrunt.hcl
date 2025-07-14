@@ -5,6 +5,7 @@ terraform {
 locals {
   flyway_image            = get_env("flyway_image")
   api_image               = get_env("api_image")
+  frontend_image          = get_env("frontend_image", "ghcr.io/bcgov/quickstart-azure-containers/frontend:manual")
   azure_region            = "Canada Central"
   stack_prefix            = get_env("stack_prefix")
   vnet_resource_group_name = get_env("vnet_resource_group_name") # this is the resource group where the VNet exists and initial setup was done.
@@ -56,6 +57,7 @@ generate "tfvars" {
     container_apps_subnet_name = "app-subnet"
     api_image = "${local.api_image}"
     flyway_image = "${local.flyway_image}"
+    frontend_image = "${local.frontend_image}"
     postgresql_server_fqdn = "${get_env("postgresql_server_fqdn")}"
     postgresql_admin_password = "${get_env("db_master_password")}"
     common_tags = {

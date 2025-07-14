@@ -1,4 +1,4 @@
- output "log_analytics_workspace_id" {
+output "log_analytics_workspace_id" {
   description = "ID of the Log Analytics Workspace"
   value       = azurerm_log_analytics_workspace.main.id
 }
@@ -37,6 +37,11 @@ output "log_analytics_workspace_name" {
 output "app_service_url" {
   description = "The URL of the App Service"
   value       = "https://${azurerm_linux_web_app.api.default_hostname}"
+}
+
+output "frontend_app_service_url" {
+  description = "The URL of the Frontend App Service"
+  value       = "https://${azurerm_linux_web_app.frontend.default_hostname}"
 }
 /* 
 

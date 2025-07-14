@@ -67,6 +67,11 @@ variable "flyway_image" {
   type        = string
 }
 
+variable "frontend_image" {
+  description = "The image for the Frontend container"
+  type        = string
+}
+
 variable "node_env" {
   description = "Node.js environment"
   type        = string

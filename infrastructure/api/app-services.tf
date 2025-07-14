@@ -33,7 +33,7 @@ resource "azurerm_resource_group" "api" {
   location = var.location
   tags     = var.common_tags
   lifecycle {
-    ignore_changes = [ 
+    ignore_changes = [
       # Ignore tags to allow management via Azure Policy
       tags
     ]
@@ -47,10 +47,10 @@ resource "azurerm_log_analytics_workspace" "main" {
   resource_group_name = azurerm_resource_group.api.name
   sku                 = "PerGB2018"
   retention_in_days   = 30
-  
+
   tags = var.common_tags
   lifecycle {
-    ignore_changes = [ 
+    ignore_changes = [
       # Ignore tags to allow management via Azure Policy
       tags
     ]
@@ -64,10 +64,10 @@ resource "azurerm_application_insights" "main" {
   resource_group_name = azurerm_resource_group.api.name
   application_type    = "other"
   workspace_id        = azurerm_log_analytics_workspace.main.id
-  
+
   tags = var.common_tags
   lifecycle {
-    ignore_changes = [ 
+    ignore_changes = [
       # Ignore tags to allow management via Azure Policy
       tags
     ]
@@ -89,14 +89,14 @@ resource "azurerm_container_registry" "main" {
   name                = "${replace(var.app_name, "-", "")}acr"
   resource_group_name = azurerm_resource_group.api.name
   location            = var.location
-  sku                 = "Premium"
+  sku                 = "B1"
   admin_enabled       = false
 
   # Azure Landing Zone security requirements
   public_network_access_enabled = false
-  tags = var.common_tags
+  tags                          = var.common_tags
   lifecycle {
-    ignore_changes = [ 
+    ignore_changes = [
       # Ignore tags to allow management via Azure Policy
       tags
     ]
@@ -143,7 +143,7 @@ resource "azurerm_service_plan" "main" {
   resource_group_name = azurerm_resource_group.api.name
   location            = var.location
   os_type             = "Linux"
-  sku_name            = "B1"  # Basic tier for development, can be upgraded later
+  sku_name            = "B1" # Basic tier for development, can be upgraded later
 
 
   tags = var.common_tags
@@ -175,17 +175,17 @@ resource "azurerm_linux_web_app" "api" {
   }
 
   site_config {
-    always_on                         = true
-    container_registry_use_managed_identity = true
+    always_on                                     = true
+    container_registry_use_managed_identity       = true
     container_registry_managed_identity_client_id = azurerm_user_assigned_identity.container_apps.client_id
-    
+
     # Security - Use latest TLS version
-    minimum_tls_version               = "1.3"
-    
+    minimum_tls_version = "1.3"
+
     # Health check configuration
     health_check_path                 = "/api/health"
     health_check_eviction_time_in_min = 2
-    
+
     # Application stack for container
     application_stack {
       docker_image_name   = var.api_image
@@ -194,10 +194,10 @@ resource "azurerm_linux_web_app" "api" {
 
     # Configure for container deployment
     ftps_state = "Disabled"
-    
+
     # CORS configuration for direct access
     cors {
-      allowed_origins = ["*"]  # Allow all origins - customize as needed for production
+      allowed_origins     = ["*"] # Allow all origins - customize as needed for production
       support_credentials = false
     }
   }
@@ -211,7 +211,7 @@ resource "azurerm_linux_web_app" "api" {
     "DOCKER_ENABLE_CI"                      = "true"
     "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.main.connection_string
     "APPINSIGHTS_INSTRUMENTATIONKEY"        = azurerm_application_insights.main.instrumentation_key
-    
+
     # Database configuration using direct variables
     "POSTGRES_HOST"     = var.postgresql_server_fqdn
     "POSTGRES_USER"     = var.postgresql_admin_username
@@ -223,11 +223,114 @@ resource "azurerm_linux_web_app" "api" {
   logs {
     detailed_error_messages = true
     failed_request_tracing  = true
-    
+
     application_logs {
       file_system_level = "Information"
     }
-    
+
+    http_logs {
+      file_system {
+        retention_in_days = 7
+        retention_in_mb   = 100
+      }
+    }
+  }
+
+  tags = var.common_tags
+  lifecycle {
+    ignore_changes = [
+      # Ignore tags to allow management via Azure Policy
+      tags
+    ]
+  }
+}
+
+# App Service Plan for frontend application
+resource "azurerm_service_plan" "frontend" {
+  name                = "${var.app_name}-frontend-asp"
+  resource_group_name = azurerm_resource_group.api.name
+  location            = var.location
+  os_type             = "Linux"
+  sku_name            = "B1" # Basic tier
+
+  tags = var.common_tags
+  lifecycle {
+    ignore_changes = [
+      # Ignore tags to allow management via Azure Policy
+      tags
+    ]
+  }
+}
+
+# App Service for Frontend with container
+resource "azurerm_linux_web_app" "frontend" {
+  name                = "${var.app_name}-frontend-app"
+  resource_group_name = azurerm_resource_group.api.name
+  location            = var.location
+  service_plan_id     = azurerm_service_plan.frontend.id
+
+  # VNet integration for secure communication - same subnet as API
+  virtual_network_subnet_id = data.azurerm_subnet.container_apps.id
+
+  # Enable HTTPS only
+  https_only = true
+
+  # Enable managed identity
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.container_apps.id]
+  }
+
+  site_config {
+    always_on                                     = true
+    container_registry_use_managed_identity       = true
+    container_registry_managed_identity_client_id = azurerm_user_assigned_identity.container_apps.client_id
+
+    # Security - Use latest TLS version
+    minimum_tls_version = "1.3"
+
+    # Health check configuration
+    health_check_path                 = "/"
+    health_check_eviction_time_in_min = 2
+
+    # Application stack for container
+    application_stack {
+      docker_image_name   = var.frontend_image
+      docker_registry_url = "https://ghcr.io"
+    }
+
+    # Configure for container deployment
+    ftps_state = "Disabled"
+
+    # CORS configuration for frontend
+    cors {
+      allowed_origins     = ["*"] # Allow all origins for frontend
+      support_credentials = false
+    }
+  }
+
+  # Application settings for frontend
+  app_settings = {
+    "WEBSITES_PORT"                         = "80"
+    "WEBSITES_ENABLE_APP_SERVICE_STORAGE"   = "false"
+    "DOCKER_ENABLE_CI"                      = "true"
+    "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.main.connection_string
+    "APPINSIGHTS_INSTRUMENTATIONKEY"        = azurerm_application_insights.main.instrumentation_key
+
+    # Backend URL for frontend to communicate with API
+    "VITE_BACKEND_URL" = "https://${azurerm_linux_web_app.api.default_hostname}"
+    "LOG_LEVEL"        = "info" # Default log level for frontend
+  }
+
+  # Logs configuration
+  logs {
+    detailed_error_messages = true
+    failed_request_tracing  = true
+
+    application_logs {
+      file_system_level = "Information"
+    }
+
     http_logs {
       file_system {
         retention_in_days = 7
@@ -252,6 +355,7 @@ resource "azurerm_linux_web_app" "flyway" {
   location            = var.location
   service_plan_id     = azurerm_service_plan.main.id
 
+
   # VNet integration for secure communication
   virtual_network_subnet_id = data.azurerm_subnet.container_apps.id
 
@@ -265,13 +369,13 @@ resource "azurerm_linux_web_app" "flyway" {
   }
 
   site_config {
-    always_on                         = false  # Can be turned off for migration jobs
-    container_registry_use_managed_identity = true
+    always_on                                     = false # Can be turned off for migration jobs
+    container_registry_use_managed_identity       = true
     container_registry_managed_identity_client_id = azurerm_user_assigned_identity.container_apps.client_id
-    
+
     # Security - Use latest TLS version
-    minimum_tls_version               = "1.3"
-    
+    minimum_tls_version = "1.3"
+
     # Application stack for container
     application_stack {
       docker_image_name   = var.flyway_image
@@ -284,26 +388,26 @@ resource "azurerm_linux_web_app" "flyway" {
 
   # Application settings for Flyway
   app_settings = {
-    "WEBSITES_ENABLE_APP_SERVICE_STORAGE" = "false"
-    "DOCKER_ENABLE_CI"                    = "true"
+    "WEBSITES_ENABLE_APP_SERVICE_STORAGE"   = "false"
+    "DOCKER_ENABLE_CI"                      = "true"
     "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.main.connection_string
-    
+
     # Flyway configuration using direct variables
-    "FLYWAY_URL"                = "jdbc:postgresql://${var.postgresql_server_fqdn}/${var.database_name}?sslmode=require"
-    "FLYWAY_USER"               = var.postgresql_admin_username
-    "FLYWAY_PASSWORD"           = var.postgresql_admin_password
+    "FLYWAY_URL"                 = "jdbc:postgresql://${var.postgresql_server_fqdn}/${var.database_name}?sslmode=require"
+    "FLYWAY_USER"                = var.postgresql_admin_username
+    "FLYWAY_PASSWORD"            = var.postgresql_admin_password
     "FLYWAY_BASELINE_ON_MIGRATE" = "true"
-    "FLYWAY_DEFAULT_SCHEMA"     = "app"
-    "FLYWAY_CONNECT_RETRIES"    = "30"
-    "FLYWAY_GROUP"              = "true"
-    "FLYWAY_LOG_LEVEL"          = "DEBUG"
+    "FLYWAY_DEFAULT_SCHEMA"      = "app"
+    "FLYWAY_CONNECT_RETRIES"     = "30"
+    "FLYWAY_GROUP"               = "true"
+    "FLYWAY_LOG_LEVEL"           = "DEBUG"
   }
 
   # Logs configuration
   logs {
     detailed_error_messages = true
     failed_request_tracing  = true
-    
+
     application_logs {
       file_system_level = "Information"
     }

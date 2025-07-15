@@ -14,14 +14,13 @@ data "azurerm_subnet" "private_endpoints" {
   virtual_network_name = data.azurerm_virtual_network.main.name
   resource_group_name  = var.vnet_resource_group_name
 }
-# Resource group for API resources
+# Create the main resource group for all application resources
 resource "azurerm_resource_group" "main" {
   name     = var.resource_group_name
   location = var.location
   tags     = var.common_tags
   lifecycle {
     ignore_changes = [
-      # Ignore tags to allow management via Azure Policy
       tags
     ]
   }
@@ -150,9 +149,3 @@ resource "azurerm_postgresql_flexible_server_configuration" "azure_extensions" {
   ]
 }
 
-# Create the main resource group for all application resources
-resource "azurerm_resource_group" "main" {
-  name     = var.resource_group_name
-  location = var.location
-  tags     = var.common_tags
-}

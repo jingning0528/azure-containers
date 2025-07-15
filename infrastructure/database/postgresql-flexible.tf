@@ -14,12 +14,23 @@ data "azurerm_subnet" "private_endpoints" {
   virtual_network_name = data.azurerm_virtual_network.main.name
   resource_group_name  = var.vnet_resource_group_name
 }
-
+# Resource group for API resources
+resource "azurerm_resource_group" "main" {
+  name     = var.resource_group_name
+  location = var.location
+  tags     = var.common_tags
+  lifecycle {
+    ignore_changes = [
+      # Ignore tags to allow management via Azure Policy
+      tags
+    ]
+  }
+}
 
 # PostgreSQL Flexible Server
 resource "azurerm_postgresql_flexible_server" "main" {
   name                = var.app_name
-  resource_group_name = var.resource_group_name
+  resource_group_name = azurerm_resource_group.main.name
   location            = var.location
 
   administrator_login    = var.postgresql_admin_username

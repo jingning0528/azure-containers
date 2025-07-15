@@ -50,7 +50,6 @@ tenant_id                = "${local.azure_tenant_id}"
 vnet_name                = "${local.vnet_name}"
 vnet_resource_group_name = "${local.vnet_resource_group_name}"
 db_master_password       = "${get_env("db_master_password")}"
-target_env               = "${local.app_env}"
 location = "Canada Central"
 common_tags = {
   "Environment" = "${local.target_env}"

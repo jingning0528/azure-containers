@@ -27,24 +27,13 @@ data "azurerm_subnet" "web" {
   resource_group_name  = var.vnet_resource_group_name
 }
 
-# Resource group for API resources
-resource "azurerm_resource_group" "api" {
-  name     = var.resource_group_name
-  location = var.location
-  tags     = var.common_tags
-  lifecycle {
-    ignore_changes = [
-      # Ignore tags to allow management via Azure Policy
-      tags
-    ]
-  }
-}
+
 
 # Log Analytics Workspace
 resource "azurerm_log_analytics_workspace" "main" {
   name                = "${var.app_name}-logs"
   location            = var.location
-  resource_group_name = azurerm_resource_group.api.name
+  resource_group_name = var.resource_group_name # the database module creates the resource group
   sku                 = "PerGB2018"
   retention_in_days   = 30
 
@@ -61,7 +50,7 @@ resource "azurerm_log_analytics_workspace" "main" {
 resource "azurerm_application_insights" "main" {
   name                = "${var.app_name}-appinsights"
   location            = var.location
-  resource_group_name = azurerm_resource_group.api.name
+  resource_group_name = var.resource_group_name # the database module creates the resource group
   application_type    = "other"
   workspace_id        = azurerm_log_analytics_workspace.main.id
 
@@ -78,7 +67,7 @@ resource "azurerm_application_insights" "main" {
 resource "azurerm_user_assigned_identity" "container_apps" {
   name                = "${var.app_name}-identity"
   location            = var.location
-  resource_group_name = azurerm_resource_group.api.name
+  resource_group_name = var.resource_group_name # the database module creates the resource group
 
   tags = var.common_tags
 }
@@ -87,7 +76,7 @@ resource "azurerm_user_assigned_identity" "container_apps" {
 resource "azurerm_container_registry" "main" {
   count               = var.create_container_registry ? 1 : 0
   name                = "${replace(var.app_name, "-", "")}acr"
-  resource_group_name = azurerm_resource_group.api.name
+  resource_group_name = var.resource_group_name # the database module creates the resource group
   location            = var.location
   sku                 = "Basic"
   admin_enabled       = false
@@ -116,7 +105,7 @@ resource "azurerm_private_endpoint" "container_registry" {
   count               = var.create_container_registry ? 1 : 0
   name                = "${var.app_name}-acr-pe"
   location            = var.location
-  resource_group_name = azurerm_resource_group.api.name
+  resource_group_name = var.resource_group_name # the database module creates the resource group
   subnet_id           = data.azurerm_subnet.private_endpoint.id
 
   private_service_connection {
@@ -140,7 +129,7 @@ resource "azurerm_private_endpoint" "container_registry" {
 # App Service Plan for container-based applications
 resource "azurerm_service_plan" "main" {
   name                = "${var.app_name}-asp"
-  resource_group_name = azurerm_resource_group.api.name
+  resource_group_name = var.resource_group_name # the database module creates the resource group
   location            = var.location
   os_type             = "Linux"
   sku_name            = "B1" # Basic tier for development, can be upgraded later
@@ -158,7 +147,7 @@ resource "azurerm_service_plan" "main" {
 # App Service for API backend with container
 resource "azurerm_linux_web_app" "api" {
   name                = "${var.app_name}-api-app"
-  resource_group_name = azurerm_resource_group.api.name
+  resource_group_name = var.resource_group_name # the database module creates the resource group
   location            = var.location
   service_plan_id     = azurerm_service_plan.main.id
 
@@ -248,7 +237,7 @@ resource "azurerm_linux_web_app" "api" {
 # App Service Plan for frontend application
 resource "azurerm_service_plan" "frontend" {
   name                = "${var.app_name}-frontend-asp"
-  resource_group_name = azurerm_resource_group.api.name
+  resource_group_name = var.resource_group_name # the database module creates the resource group
   location            = var.location
   os_type             = "Linux"
   sku_name            = "B1" # Basic tier
@@ -265,7 +254,7 @@ resource "azurerm_service_plan" "frontend" {
 # App Service for Frontend with container
 resource "azurerm_linux_web_app" "frontend" {
   name                = "${var.app_name}-frontend-app"
-  resource_group_name = azurerm_resource_group.api.name
+  resource_group_name = var.resource_group_name # the database module creates the resource group
   location            = var.location
   service_plan_id     = azurerm_service_plan.frontend.id
 
@@ -353,7 +342,7 @@ resource "azurerm_linux_web_app" "frontend" {
 resource "azurerm_storage_account" "cloudbeaver" {
   count                    = var.enable_psql_sidecar ? 1 : 0
   name                     = "${replace(var.app_name, "-", "")}cbstorage"
-  resource_group_name      = azurerm_resource_group.api.name
+  resource_group_name = var.resource_group_name # the database module creates the resource group
   location                 = var.location
   account_tier             = "Standard"
   account_replication_type = "LRS"
@@ -374,7 +363,7 @@ resource "azurerm_storage_account" "cloudbeaver" {
 # File Share for CloudBeaver workspace
 resource "azurerm_storage_share" "cloudbeaver_workspace" {
   count              = var.enable_psql_sidecar ? 1 : 0
-  name               = "cloudbeaver-workspace"
+  name               = "${var.app_name}-cb-workspace"
   storage_account_id = azurerm_storage_account.cloudbeaver[0].id
   quota              = 10 # 10 GB quota
 }
@@ -423,8 +412,8 @@ resource "random_password" "cloudbeaver_admin_password" {
 # App Service for CloudBeaver database management
 resource "azurerm_linux_web_app" "psql_sidecar" {
   count               = var.enable_psql_sidecar ? 1 : 0
-  name                = "${var.app_name}-cloudbeaver-app"
-  resource_group_name = azurerm_resource_group.api.name
+  name                = "${var.app_name}-cb-app"
+  resource_group_name = var.resource_group_name # the database module creates the resource group
   location            = var.location
   service_plan_id     = azurerm_service_plan.main.id
 
@@ -529,7 +518,7 @@ resource "azurerm_linux_web_app" "psql_sidecar" {
 # App Service for Flyway database migrations
 resource "azurerm_linux_web_app" "flyway" {
   name                = "${var.app_name}-flyway-app"
-  resource_group_name = azurerm_resource_group.api.name
+  resource_group_name = var.resource_group_name # the database module creates the resource group
   location            = var.location
   service_plan_id     = azurerm_service_plan.main.id
 
@@ -854,7 +843,7 @@ resource "azurerm_private_endpoint" "app_service" {
   count               = var.enable_private_endpoint ? 1 : 0
   name                = "${var.app_name}-app-pe"
   location            = var.location
-  resource_group_name = azurerm_resource_group.api.name
+  resource_group_name = var.resource_group_name # the database module creates the resource group
   subnet_id           = data.azurerm_subnet.private_endpoint.id
 
   private_service_connection {
@@ -878,7 +867,7 @@ resource "azurerm_private_endpoint" "app_service" {
 # Auto-scaling settings for App Service Plan
 resource "azurerm_monitor_autoscale_setting" "main" {
   name                = "${var.app_name}-autoscale"
-  resource_group_name = azurerm_resource_group.api.name
+  resource_group_name = var.resource_group_name # the database module creates the resource group
   location            = var.location
   target_resource_id  = azurerm_service_plan.main.id
 

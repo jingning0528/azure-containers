@@ -373,7 +373,7 @@ resource "azurerm_private_endpoint" "cloudbeaver_storage" {
   count               = var.enable_psql_sidecar ? 1 : 0
   name                = "${var.app_name}-cb-storage-pe"
   location            = var.location
-  resource_group_name = azurerm_resource_group.api.name
+  resource_group_name = var.resource_group_name # the database module creates the resource group
   subnet_id           = data.azurerm_subnet.private_endpoint.id
 
   private_service_connection {

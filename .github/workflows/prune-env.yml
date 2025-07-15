@@ -25,7 +25,7 @@ permissions:
   packages: write
 jobs:
   destroy-tools:
-    name: Destroy Stack Dev
+    name: Destroy Stack Tools
     if: ( github.event.inputs.app_env == 'tools' )
     uses: ./.github/workflows/.destroy_stack.yml
     secrets: inherit

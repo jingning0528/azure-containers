@@ -43,6 +43,21 @@ output "frontend_app_service_url" {
   description = "The URL of the Frontend App Service"
   value       = "https://${azurerm_linux_web_app.frontend.default_hostname}"
 }
+
+output "psql_sidecar_app_service_url" {
+  description = "The URL of the PostgreSQL Sidecar App Service"
+  value       = var.enable_psql_sidecar ? "https://${azurerm_linux_web_app.psql_sidecar[0].default_hostname}" : null
+}
+
+output "psql_sidecar_ssh_endpoint" {
+  description = "SSH endpoint for the PostgreSQL Sidecar container"
+  value       = var.enable_psql_sidecar ? "${azurerm_linux_web_app.psql_sidecar[0].default_hostname}" : null
+}
+
+output "psql_sidecar_scm_url" {
+  description = "SCM URL for accessing PostgreSQL Sidecar via SSH"
+  value       = var.enable_psql_sidecar ? "https://${azurerm_linux_web_app.psql_sidecar[0].default_hostname}/api/sshsession" : null
+}
 /* 
 
 output "application_gateway_fqdn" {

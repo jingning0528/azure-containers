@@ -349,6 +349,94 @@ resource "azurerm_linux_web_app" "frontend" {
   }
 }
 
+# App Service for PostgreSQL sidecar container with SSH support
+resource "azurerm_linux_web_app" "psql_sidecar" {
+  count               = var.enable_psql_sidecar ? 1 : 0
+  name                = "${var.app_name}-psql-sidecar-app"
+  resource_group_name = azurerm_resource_group.api.name
+  location            = var.location
+  service_plan_id     = azurerm_service_plan.main.id
+
+  # VNet integration for secure communication
+  virtual_network_subnet_id = data.azurerm_subnet.container_apps.id
+
+  # Enable HTTPS only
+  https_only = true
+
+  # Enable managed identity
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.container_apps.id]
+  }
+
+  site_config {
+    always_on                                     = true
+    container_registry_use_managed_identity       = true
+    container_registry_managed_identity_client_id = azurerm_user_assigned_identity.container_apps.client_id
+
+    # Security - Use latest TLS version
+    minimum_tls_version = "1.3"
+
+    # Application stack for container - use Alpine with PostgreSQL client pre-installed
+    application_stack {
+      docker_image_name   = "ghcr.io/bcgov/nr-containers/alpine:3.22"
+      docker_registry_url = "https://ghcr.io"
+    }
+
+    # Configure for container deployment
+    ftps_state = "Disabled"
+
+    # Enable SSH access - Azure App Service provides SSH by default
+    # Command to keep container running and install PostgreSQL client
+    app_command_line = "/bin/sh -c 'echo \"PostgreSQL sidecar started. Installing PostgreSQL client...\"; apk add --no-cache postgresql-client curl && echo \"Setup complete. Container ready for SSH access.\"; while true; do sleep 360000; done'"
+  }
+
+  # Application settings for PostgreSQL sidecar
+  app_settings = {
+    "WEBSITES_ENABLE_APP_SERVICE_STORAGE"   = "false"
+    "DOCKER_ENABLE_CI"                      = "true"
+    "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.main.connection_string
+    "APPINSIGHTS_INSTRUMENTATIONKEY"        = azurerm_application_insights.main.instrumentation_key
+
+    # PostgreSQL connection configuration
+    "POSTGRES_HOST"     = var.postgresql_server_fqdn
+    "POSTGRES_USER"     = var.postgresql_admin_username
+    "POSTGRES_PASSWORD" = var.postgresql_admin_password
+    "POSTGRES_DATABASE" = var.database_name
+    "APP_NAME"          = var.app_name
+
+    # Enable SSH - Azure App Service built-in SSH
+    "WEBSITES_ENABLE_SSH" = "true"
+    "WEBSITES_PORT"       = "8000"
+    "PORT"                = "8000"
+  }
+
+  # Logs configuration
+  logs {
+    detailed_error_messages = true
+    failed_request_tracing  = true
+
+    application_logs {
+      file_system_level = "Information"
+    }
+
+    http_logs {
+      file_system {
+        retention_in_days = 7
+        retention_in_mb   = 100
+      }
+    }
+  }
+
+  tags = var.common_tags
+  lifecycle {
+    ignore_changes = [
+      # Ignore tags to allow management via Azure Policy
+      tags
+    ]
+  }
+}
+
 # App Service for Flyway database migrations
 resource "azurerm_linux_web_app" "flyway" {
   name                = "${var.app_name}-flyway-app"

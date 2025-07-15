@@ -60,7 +60,6 @@ generate "tfvars" {
     frontend_image             = "${local.frontend_image}"
     postgresql_server_fqdn     = "${get_env("postgresql_server_fqdn")}"
     postgresql_admin_password  = "${get_env("db_master_password")}"
-    location = "Canada Central"
     common_tags = {
       "Environment" = "${local.target_env}"
       "AppEnv"      = "${local.app_env}"

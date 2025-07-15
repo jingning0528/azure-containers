@@ -25,11 +25,11 @@ resource "azurerm_storage_account" "frontend" {
   account_kind             = "StorageV2"
 
   # Azure Landing Zone security requirements
-  https_traffic_only_enabled       = true
-  min_tls_version                  = "TLS1_2"
-  allow_nested_items_to_be_public  = false
-  shared_access_key_enabled        = false
-  public_network_access_enabled    = false
+  https_traffic_only_enabled      = true
+  min_tls_version                 = "TLS1_2"
+  allow_nested_items_to_be_public = false
+  shared_access_key_enabled       = false
+  public_network_access_enabled   = false
 
   static_website {
     index_document     = "index.html"
@@ -40,7 +40,7 @@ resource "azurerm_storage_account" "frontend" {
   network_rules {
     default_action = "Deny"
     bypass         = ["AzureServices"]
-    
+
     virtual_network_subnet_ids = [
       data.azurerm_subnet.private_endpoints.id
     ]
@@ -50,11 +50,11 @@ resource "azurerm_storage_account" "frontend" {
     delete_retention_policy {
       days = 30
     }
-    
+
     container_delete_retention_policy {
       days = 30
     }
-    
+
     cors_rule {
       allowed_headers    = ["*"]
       allowed_methods    = ["GET", "HEAD", "OPTIONS"]
@@ -65,7 +65,7 @@ resource "azurerm_storage_account" "frontend" {
   }
 
   tags = {
-    managed-by = "terraform"
+    managed-by  = "terraform"
     environment = var.app_env
   }
 }
@@ -97,7 +97,7 @@ resource "azurerm_private_endpoint" "storage_blob" {
   }
 
   tags = {
-    managed-by = "terraform"
+    managed-by  = "terraform"
     environment = var.app_env
   }
 }
@@ -109,7 +109,7 @@ resource "azurerm_cdn_frontdoor_profile" "main" {
   sku_name            = "Standard_AzureFrontDoor"
 
   tags = {
-    managed-by = "terraform"
+    managed-by  = "terraform"
     environment = var.app_env
   }
 }
@@ -120,7 +120,7 @@ resource "azurerm_cdn_frontdoor_endpoint" "frontend" {
   cdn_frontdoor_profile_id = azurerm_cdn_frontdoor_profile.main.id
 
   tags = {
-    managed-by = "terraform"
+    managed-by  = "terraform"
     environment = var.app_env
   }
 }
@@ -254,7 +254,7 @@ resource "azurerm_cdn_frontdoor_firewall_policy" "main" {
   }
 
   tags = {
-    managed-by = "terraform"
+    managed-by  = "terraform"
     environment = var.app_env
   }
 }

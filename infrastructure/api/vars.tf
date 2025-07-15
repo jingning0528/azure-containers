@@ -111,7 +111,7 @@ variable "create_container_registry" {
 variable "enable_psql_sidecar" {
   description = "Whether to enable the CloudBeaver database management container"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "subscription_id" {

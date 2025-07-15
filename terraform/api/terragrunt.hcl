@@ -94,8 +94,8 @@ generate "provider" {
           recover_soft_deleted_key_vaults = true
         }
         resource_group {
-│         prevent_deletion_if_contains_resources = false
-│       }
+         prevent_deletion_if_contains_resources = false
+       }
       }
       subscription_id = "${local.azure_subscription_id}"
       tenant_id      = "${local.azure_tenant_id}"

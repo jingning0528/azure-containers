@@ -134,7 +134,7 @@ resource "azurerm_service_plan" "main" {
   resource_group_name = var.resource_group_name # the database module creates the resource group
   location            = var.location
   os_type             = "Linux"
-  sku_name            = "B1" # Basic tier for development, can be upgraded later
+  sku_name            = "S1" # Standard tier to support deployment slots
 
 
   tags = var.common_tags

@@ -1,7 +1,7 @@
 
 # Storage Account for Flyway WebJob slot
 resource "azurerm_storage_account" "flyway_webjob" {
-  name                     = lower(replace("${var.app_name}flywaywebjobsa", "-", ""))
+  name                     = substr(lower(replace("${var.app_name}flyway", "-", "")),0,24)
   resource_group_name      = var.resource_group_name
   location                 = var.location
   account_tier             = "Standard"

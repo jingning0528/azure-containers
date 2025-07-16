@@ -544,14 +544,14 @@ resource "azurerm_storage_share" "flyway_webjob" {
   quota              = 10 # 10 GB quota
 }
 # Private endpoint for Storage Account
-resource "azurerm_private_endpoint" "flyway_webjob" {
-  name                = substr(lower(replace("${var.app_name}flyway", "-", "")), 0, 24)
+resource "azurerm_private_endpoint" "flyway_webjob_storage" {
+  name                = substr(lower(replace("${var.app_name}flywaystoragepe", "-", "")), 0, 24)
   location            = var.location
   resource_group_name = var.resource_group_name # the database module creates the resource group
   subnet_id           = data.azurerm_subnet.private_endpoint.id
 
   private_service_connection {
-    name                           = "${var.app_name}-cb-storage-psc"
+    name                           = "${var.app_name}-flywaystorage-psc"
     private_connection_resource_id = azurerm_storage_account.flyway_webjob.id
     subresource_names              = ["file"]
     is_manual_connection           = false
@@ -568,7 +568,30 @@ resource "azurerm_private_endpoint" "flyway_webjob" {
   }
 }
 
+# Private endpoint for flyway webjob
+resource "azurerm_private_endpoint" "flyway_webjob" {
+  name                = substr(lower(replace("${var.app_name}flywayjobpe", "-", "")), 0, 24)
+  location            = var.location
+  resource_group_name = var.resource_group_name # the database module creates the resource group
+  subnet_id           = data.azurerm_subnet.private_endpoint.id
 
+  private_service_connection {
+    name                           = "${var.app_name}-flywayjob-psc"
+    private_connection_resource_id = azurerm_linux_web_app_slot.api_flyway_webjob.id
+    subresource_names              = ["sites"]
+    is_manual_connection           = false
+  }
+  depends_on = [azurerm_linux_web_app_slot.api_flyway_webjob]
+  tags       = var.common_tags
+  lifecycle {
+    ignore_changes = [
+      # Ignore tags to allow management via Azure Policy
+      tags,
+      # Ignore private DNS zone group as it's managed by Azure Policy
+      private_dns_zone_group
+    ]
+  }
+}
 resource "azurerm_linux_web_app_slot" "api_flyway_webjob" {
   name           = "${var.app_name}-flyway-webjob"
   app_service_id = azurerm_linux_web_app.api.id
@@ -605,6 +628,7 @@ resource "azurerm_linux_web_app_slot" "api_flyway_webjob" {
     share_name   = azurerm_storage_share.flyway_webjob.name
     mount_path   = "/home"
     type         = "AzureFiles"
+
   }
 
   app_settings = merge(azurerm_linux_web_app.api.app_settings, {

@@ -542,7 +542,11 @@ resource "azurerm_linux_web_app" "psql_sidecar" {
 resource "azurerm_linux_web_app_slot" "api_flyway_webjob" {
   name           = "${var.app_name}-flyway-webjob"
   app_service_id = azurerm_linux_web_app.api.id
+  # VNet integration for secure communication
+  virtual_network_subnet_id = data.azurerm_subnet.container_apps.id
 
+  # Enable HTTPS only
+  https_only = true
 
   site_config {
     container_registry_use_managed_identity       = true

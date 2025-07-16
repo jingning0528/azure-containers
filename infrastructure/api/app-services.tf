@@ -1,25 +1,5 @@
 
-# Storage Account for Flyway WebJob slot
-resource "azurerm_storage_account" "flyway_webjob" {
-  name                            = substr(lower(replace("${var.app_name}flyway", "-", "")), 0, 24)
-  resource_group_name             = var.resource_group_name
-  location                        = var.location
-  account_tier                    = "Standard"
-  account_replication_type        = "LRS"
-  min_tls_version                 = "TLS1_2"
-  allow_nested_items_to_be_public = false
-  public_network_access_enabled   = false
-  tags                            = var.common_tags
-  lifecycle {
-    ignore_changes = [tags]
-  }
-}
-# File Share for Flyway WebJob
-resource "azurerm_storage_share" "flyway_webjob" {
-  name               = "flyway-webjob"
-  storage_account_id = azurerm_storage_account.flyway_webjob.id
-  quota              = 10 # 10 GB quota
-}
+
 # Azure App Services for API backend with Front Door
 
 # Data source for existing virtual network
@@ -537,6 +517,56 @@ resource "azurerm_linux_web_app" "psql_sidecar" {
   }
 }
 
+# Storage Account for Flyway WebJob slot
+resource "azurerm_storage_account" "flyway_webjob" {
+  name                     = substr(lower(replace("${var.app_name}flyway", "-", "")), 0, 24)
+  resource_group_name      = var.resource_group_name
+  location                 = var.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+
+  # Landing Zone security requirements
+  public_network_access_enabled   = false
+  allow_nested_items_to_be_public = false
+
+  tags = var.common_tags
+  lifecycle {
+    ignore_changes = [
+      # Ignore tags to allow management via Azure Policy
+      tags
+    ]
+  }
+}
+# File Share for Flyway WebJob
+resource "azurerm_storage_share" "flyway_webjob" {
+  name               = substr(lower(replace("${var.app_name}flyway", "-", "")), 0, 24)
+  storage_account_id = azurerm_storage_account.flyway_webjob.id
+  quota              = 10 # 10 GB quota
+}
+# Private endpoint for Storage Account
+resource "azurerm_private_endpoint" "flyway_webjob" {
+  name                = substr(lower(replace("${var.app_name}flyway", "-", "")), 0, 24)
+  location            = var.location
+  resource_group_name = var.resource_group_name # the database module creates the resource group
+  subnet_id           = data.azurerm_subnet.private_endpoint.id
+
+  private_service_connection {
+    name                           = "${var.app_name}-cb-storage-psc"
+    private_connection_resource_id = azurerm_storage_account.flyway_webjob.id
+    subresource_names              = ["file"]
+    is_manual_connection           = false
+  }
+
+  tags = var.common_tags
+  lifecycle {
+    ignore_changes = [
+      # Ignore tags to allow management via Azure Policy
+      tags,
+      # Ignore private DNS zone group as it's managed by Azure Policy
+      private_dns_zone_group
+    ]
+  }
+}
 
 
 resource "azurerm_linux_web_app_slot" "api_flyway_webjob" {

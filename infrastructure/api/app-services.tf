@@ -574,7 +574,7 @@ resource "azurerm_private_endpoint" "flyway_webjob" {
   location            = var.location
   resource_group_name = var.resource_group_name # the database module creates the resource group
   subnet_id           = data.azurerm_subnet.private_endpoint.id
-
+  
   private_service_connection {
     name                           = "${var.app_name}-flywayjob-psc"
     private_connection_resource_id = azurerm_linux_web_app_slot.api_flyway_webjob.id
@@ -597,9 +597,14 @@ resource "azurerm_linux_web_app_slot" "api_flyway_webjob" {
   app_service_id = azurerm_linux_web_app.api.id
   # VNet integration for secure communication
   virtual_network_subnet_id = data.azurerm_subnet.container_apps.id
-
+  public_network_access_enabled = false
   # Enable HTTPS only
   https_only = true
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.container_apps.id]
+  }
 
   site_config {
     container_registry_use_managed_identity       = true
@@ -617,6 +622,11 @@ resource "azurerm_linux_web_app_slot" "api_flyway_webjob" {
     # Configure for container deployment
     ftps_state = "Disabled"
     always_on  = false
+    # CORS configuration for direct access
+    cors {
+      allowed_origins     = ["*"] # Allow all origins - customize as needed for production
+      support_credentials = false
+    }
   }
   depends_on = [azurerm_linux_web_app.api]
 
@@ -631,7 +641,7 @@ resource "azurerm_linux_web_app_slot" "api_flyway_webjob" {
 
   }
 
-  app_settings = merge(azurerm_linux_web_app.api.app_settings, {
+  app_settings = {
     "FLYWAY_URL"                          = "jdbc:postgresql://${var.postgresql_server_fqdn}/${var.database_name}?sslmode=require"
     "FLYWAY_USER"                         = var.postgresql_admin_username
     "FLYWAY_PASSWORD"                     = var.postgresql_admin_password
@@ -642,12 +652,8 @@ resource "azurerm_linux_web_app_slot" "api_flyway_webjob" {
     "FLYWAY_LOG_LEVEL"                    = "DEBUG"
     "ENABLE_ORYX_BUILD"                   = "false"
     "WEBSITES_ENABLE_APP_SERVICE_STORAGE" = "true"
-  })
-
-  identity {
-    type         = "UserAssigned"
-    identity_ids = [azurerm_user_assigned_identity.container_apps.id]
   }
+
 
   tags = var.common_tags
   lifecycle {

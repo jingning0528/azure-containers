@@ -1,24 +1,24 @@
 
 # Storage Account for Flyway WebJob slot
 resource "azurerm_storage_account" "flyway_webjob" {
-  name                     = substr(lower(replace("${var.app_name}flyway", "-", "")),0,24)
-  resource_group_name      = var.resource_group_name
-  location                 = var.location
-  account_tier             = "Standard"
-  account_replication_type = "LRS"
-  min_tls_version          = "TLS1_2"
+  name                            = substr(lower(replace("${var.app_name}flyway", "-", "")), 0, 24)
+  resource_group_name             = var.resource_group_name
+  location                        = var.location
+  account_tier                    = "Standard"
+  account_replication_type        = "LRS"
+  min_tls_version                 = "TLS1_2"
   allow_nested_items_to_be_public = false
-  public_network_access_enabled = false
-  tags                     = var.common_tags
+  public_network_access_enabled   = false
+  tags                            = var.common_tags
   lifecycle {
     ignore_changes = [tags]
   }
 }
 # File Share for Flyway WebJob
 resource "azurerm_storage_share" "flyway_webjob" {
-  name                 = "flyway-webjob"
-  storage_account_id   = azurerm_storage_account.flyway_webjob.id
-  quota                = 10 # 10 GB quota
+  name               = "flyway-webjob"
+  storage_account_id = azurerm_storage_account.flyway_webjob.id
+  quota              = 10 # 10 GB quota
 }
 # Azure App Services for API backend with Front Door
 
@@ -364,7 +364,7 @@ resource "azurerm_linux_web_app" "frontend" {
 resource "azurerm_storage_account" "cloudbeaver" {
   count                    = var.enable_psql_sidecar ? 1 : 0
   name                     = "${replace(var.app_name, "-", "")}cbstorage"
-  resource_group_name = var.resource_group_name # the database module creates the resource group
+  resource_group_name      = var.resource_group_name # the database module creates the resource group
   location                 = var.location
   account_tier             = "Standard"
   account_replication_type = "LRS"
@@ -545,11 +545,23 @@ resource "azurerm_linux_web_app_slot" "api_flyway_webjob" {
 
 
   site_config {
-    linux_fx_version = "DOCKER|${var.flyway_image}"
-    ftps_state       = "Disabled"
-    always_on        = false
+    container_registry_use_managed_identity       = true
+    container_registry_managed_identity_client_id = azurerm_user_assigned_identity.container_apps.client_id
+
+    # Security - Use latest TLS version
+    minimum_tls_version = "1.3"
+
+    # Application stack for container
+    application_stack {
+      docker_image_name   = var.flyway_image
+      docker_registry_url = var.create_container_registry ? "https://${azurerm_container_registry.main[0].login_server}" : "https://ghcr.io"
+    }
+
+    # Configure for container deployment
+    ftps_state = "Disabled"
+    always_on  = false
   }
-  depends_on = [ azurerm_linux_web_app.api ]
+  depends_on = [azurerm_linux_web_app.api]
 
 
   storage_account {
@@ -562,15 +574,15 @@ resource "azurerm_linux_web_app_slot" "api_flyway_webjob" {
   }
 
   app_settings = merge(azurerm_linux_web_app.api.app_settings, {
-    "FLYWAY_URL"             = "jdbc:postgresql://${var.postgresql_server_fqdn}/${var.database_name}?sslmode=require"
-    "FLYWAY_USER"            = var.postgresql_admin_username
-    "FLYWAY_PASSWORD"        = var.postgresql_admin_password
-    "FLYWAY_BASELINE_ON_MIGRATE" = "true"
-    "FLYWAY_DEFAULT_SCHEMA"      = "app"
-    "FLYWAY_CONNECT_RETRIES"     = "30"
-    "FLYWAY_GROUP"               = "true"
-    "FLYWAY_LOG_LEVEL"           = "DEBUG"
-    "ENABLE_ORYX_BUILD"          = "false"
+    "FLYWAY_URL"                          = "jdbc:postgresql://${var.postgresql_server_fqdn}/${var.database_name}?sslmode=require"
+    "FLYWAY_USER"                         = var.postgresql_admin_username
+    "FLYWAY_PASSWORD"                     = var.postgresql_admin_password
+    "FLYWAY_BASELINE_ON_MIGRATE"          = "true"
+    "FLYWAY_DEFAULT_SCHEMA"               = "app"
+    "FLYWAY_CONNECT_RETRIES"              = "30"
+    "FLYWAY_GROUP"                        = "true"
+    "FLYWAY_LOG_LEVEL"                    = "DEBUG"
+    "ENABLE_ORYX_BUILD"                   = "false"
     "WEBSITES_ENABLE_APP_SERVICE_STORAGE" = "true"
   })
 
@@ -591,7 +603,7 @@ resource "null_resource" "trigger_flyway_webjob" {
   }
 
   provisioner "local-exec" {
-    command = <<EOT
+    command     = <<EOT
       az webapp restart \
         --name ${azurerm_linux_web_app.api.name} \
         --resource-group ${var.resource_group_name} \

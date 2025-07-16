@@ -636,7 +636,7 @@ resource "azurerm_linux_web_app_slot" "api_flyway_webjob" {
     account_name = azurerm_storage_account.flyway_webjob.name
     access_key   = azurerm_storage_account.flyway_webjob.primary_access_key
     share_name   = azurerm_storage_share.flyway_webjob.name
-    mount_path   = "/home"
+    mount_path   = "/mnt/flywaydata"
     type         = "AzureFiles"
 
   }

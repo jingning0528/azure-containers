@@ -1,3 +1,25 @@
+
+# Storage Account for Flyway WebJob slot
+resource "azurerm_storage_account" "flyway_webjob" {
+  name                     = lower(replace("${var.app_name}flywaywebjobsa", "-", ""))
+  resource_group_name      = var.resource_group_name
+  location                 = var.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+  min_tls_version          = "TLS1_2"
+  allow_nested_items_to_be_public = false
+  public_network_access_enabled = false
+  tags                     = var.common_tags
+  lifecycle {
+    ignore_changes = [tags]
+  }
+}
+# File Share for Flyway WebJob
+resource "azurerm_storage_share" "flyway_webjob" {
+  name                 = "flyway-webjob"
+  storage_account_id   = azurerm_storage_account.flyway_webjob.id
+  quota                = 10 # 10 GB quota
+}
 # Azure App Services for API backend with Front Door
 
 # Data source for existing virtual network
@@ -515,78 +537,70 @@ resource "azurerm_linux_web_app" "psql_sidecar" {
   }
 }
 
-# App Service for Flyway database migrations
-resource "azurerm_linux_web_app" "flyway" {
-  name                = "${var.app_name}-flyway-app"
-  resource_group_name = var.resource_group_name # the database module creates the resource group
-  location            = var.location
-  service_plan_id     = azurerm_service_plan.main.id
 
 
-  # VNet integration for secure communication
-  virtual_network_subnet_id = data.azurerm_subnet.container_apps.id
+resource "azurerm_linux_web_app_slot" "api_flyway_webjob" {
+  name           = "${var.app_name}-flyway-webjob"
+  app_service_id = azurerm_linux_web_app.api.id
 
-  # Enable HTTPS only
-  https_only = true
-
-  # Enable managed identity
-  identity {
-    type         = "UserAssigned"
-    identity_ids = [azurerm_user_assigned_identity.container_apps.id]
-  }
 
   site_config {
-    always_on                                     = false # Can be turned off for migration jobs
-    container_registry_use_managed_identity       = true
-    container_registry_managed_identity_client_id = azurerm_user_assigned_identity.container_apps.client_id
+    linux_fx_version = "DOCKER|${var.flyway_image}"
+    ftps_state       = "Disabled"
+    always_on        = false
+  }
+  depends_on = [ azurerm_linux_web_app.api ]
 
-    # Security - Use latest TLS version
-    minimum_tls_version = "1.3"
 
-    # Application stack for container
-    application_stack {
-      docker_image_name   = var.flyway_image
-      docker_registry_url = var.create_container_registry ? "https://${azurerm_container_registry.main[0].login_server}" : "https://ghcr.io"
-    }
-
-    # Configure for container deployment
-    ftps_state = "Disabled"
+  storage_account {
+    name         = "flywaywebjobmount"
+    account_name = azurerm_storage_account.flyway_webjob.name
+    access_key   = azurerm_storage_account.flyway_webjob.primary_access_key
+    share_name   = azurerm_storage_share.flyway_webjob.name
+    mount_path   = "/home"
+    type         = "AzureFiles"
   }
 
-  # Application settings for Flyway
-  app_settings = {
-    "WEBSITES_ENABLE_APP_SERVICE_STORAGE"   = "false"
-    "DOCKER_ENABLE_CI"                      = "true"
-    "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.main.connection_string
-
-    # Flyway configuration using direct variables
-    "FLYWAY_URL"                 = "jdbc:postgresql://${var.postgresql_server_fqdn}/${var.database_name}?sslmode=require"
-    "FLYWAY_USER"                = var.postgresql_admin_username
-    "FLYWAY_PASSWORD"            = var.postgresql_admin_password
+  app_settings = merge(azurerm_linux_web_app.api.app_settings, {
+    "FLYWAY_URL"             = "jdbc:postgresql://${var.postgresql_server_fqdn}/${var.database_name}?sslmode=require"
+    "FLYWAY_USER"            = var.postgresql_admin_username
+    "FLYWAY_PASSWORD"        = var.postgresql_admin_password
     "FLYWAY_BASELINE_ON_MIGRATE" = "true"
     "FLYWAY_DEFAULT_SCHEMA"      = "app"
     "FLYWAY_CONNECT_RETRIES"     = "30"
     "FLYWAY_GROUP"               = "true"
     "FLYWAY_LOG_LEVEL"           = "DEBUG"
-  }
+    "ENABLE_ORYX_BUILD"          = "false"
+    "WEBSITES_ENABLE_APP_SERVICE_STORAGE" = "true"
+  })
 
-  # Logs configuration
-  logs {
-    detailed_error_messages = true
-    failed_request_tracing  = true
-
-    application_logs {
-      file_system_level = "Information"
-    }
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.container_apps.id]
   }
 
   tags = var.common_tags
   lifecycle {
-    ignore_changes = [
-      # Ignore tags to allow management via Azure Policy
-      tags
-    ]
+    ignore_changes = [tags]
   }
+}
+# Trigger Flyway WebJob slot on every deployment
+resource "null_resource" "trigger_flyway_webjob" {
+  triggers = {
+    always_run = timestamp()
+  }
+
+  provisioner "local-exec" {
+    command = <<EOT
+      az webapp restart \
+        --name ${azurerm_linux_web_app.api.name} \
+        --resource-group ${var.resource_group_name} \
+        --slot ${azurerm_linux_web_app_slot.api_flyway_webjob.name}
+    EOT
+    interpreter = ["/bin/bash", "-c"]
+  }
+
+  depends_on = [azurerm_linux_web_app_slot.api_flyway_webjob]
 }
 
 # Azure Front Door Profile - Premium for private endpoint connectivity (commented out - removed Front Door)

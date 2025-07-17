@@ -372,8 +372,8 @@ resource "azapi_resource" "app_service_subnet" {
       delegations = [
         {
           name = "app-service-delegation"
-          serviceDelegation = {
-            name = "Microsoft.App/ServerFarm"
+          properties = {
+            serviceName = "Microsoft.App/ServerFarm"
           }
         }
       ]
@@ -396,8 +396,8 @@ resource "azapi_resource" "container_instance_subnet" {
       delegations = [
         {
           name = "aci-delegation"
-          serviceDelegation = {
-            name = "Microsoft.ContainerInstance/containerGroups"
+          properties = {
+            serviceName = "Microsoft.ContainerInstance/containerGroups"
           }
         }
       ]

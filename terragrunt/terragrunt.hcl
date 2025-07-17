@@ -10,14 +10,14 @@ locals {
   api_image                = get_env("api_image")
   vnet_resource_group_name = get_env("vnet_resource_group_name") # this is the resource group where the VNet exists and initial setup was done.
   vnet_name                = get_env("vnet_name")               # this is the name of the existing VNet
-  storage_account_name     = "tfstate${local.target_env}" # this is created by the initial setup script
-  target_env               = get_env("target_env")              # this is the target environment, like dev, test, prod
+  storage_account_name     = "qacatfstate${local.target_env}" # this is created by the initial setup script, make sure it matches the one used in the initial setup.
+  target_env               = get_env("target_env")              
+  app_env                  = get_env("target_env")                
   azure_subscription_id    = get_env("azure_subscription_id")
   azure_tenant_id          = get_env("azure_tenant_id")
   azure_client_id          = get_env("azure_client_id")         # this is the client ID of the Azure service principal
   statefile_key            = "${local.stack_prefix}/${local.target_env}/terraform.tfstate"
   container_name           = "tfstate"
-  stack_prefix             = get_env("stack_prefix")
 }
 
 # Remote Azure Storage backend for Terraform
@@ -46,7 +46,7 @@ generate "tfvars" {
   disable_signature = true
   contents = <<-EOF
 resource_group_name      = "${get_env("repo_name")}-${local.app_env}"
-app_name                 = "${local.stack_prefix}-postgres-${local.app_env}"
+app_name                 = "${local.stack_prefix}-${local.app_env}"
 app_env                  = "${local.app_env}"
 subscription_id          = "${local.azure_subscription_id}"
 tenant_id                = "${local.azure_tenant_id}"

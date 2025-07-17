@@ -14,11 +14,6 @@ on:
         required: true
         default: 'apply'
         type: string
-      working_directory:
-        description: 'The working directory to run the command in'
-        required: true
-        default: 'database'
-        type: string
       tag:
         description: 'The tag of the containers to deploy'
         default: 'latest'
@@ -32,21 +27,11 @@ on:
         required: true
         type: string
         description: 'The stack prefix to use for the resources'
-      postgresql_server_fqdn:
-        description: 'FQDN of the PostgreSQL server'
-        type: string
-        required: false
-        default: 'example.database.azure.com' # makes the terraform plan work without a real server
       
-    outputs:
-      postgresql_server_fqdn:
-        description: 'PostgreSQL server FQDN'
-        value: ${{ jobs.infra.outputs.POSTGRESQL_SERVER_FQDN }}
       
 env:
     TG_VERSION: 0.63.6
     TF_VERSION: 1.12.2
-    TG_SRC_PATH: terraform/${{ inputs.working_directory }}
     AZURE_REGION: Canada Central
 permissions:
   id-token: write # This is required for requesting the JWT
@@ -54,10 +39,8 @@ permissions:
 jobs:
  infra:
   environment: ${{ inputs.environment_name }}
-  name: Terraform ${{inputs.command}} ${{inputs.working_directory}} ${{inputs.app_env}}
+  name: Terraform ${{inputs.command}}  ${{ inputs.environment_name }}
   runs-on: ubuntu-24.04
-  outputs:
-    POSTGRESQL_SERVER_FQDN: ${{ steps.tg-outputs-database.outputs.POSTGRESQL_SERVER_FQDN }}
   steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -76,7 +59,7 @@ jobs:
     - name: Setup Terragrunt
       uses: autero1/action-terragrunt@aefb0a43c4f5503a91fefb307745c4d51c26ed0e # v3
       with:
-          terragrunt-version: ${{ env.TG_VERSION }}
+        terragrunt-version: ${{ env.TG_VERSION }}
     - name: Image Tags
       id: image-tags
       shell: bash
@@ -90,7 +73,7 @@ jobs:
         echo "frontend-image=$FRONTEND_IMAGE" >> $GITHUB_OUTPUT
     
     - name: Terragrunt ${{inputs.command}}
-      working-directory: terraform/${{ inputs.working_directory }}/${{ inputs.environment_name }}
+      working-directory: terragrunt/${{ inputs.environment_name }}
       env:
           target_env: ${{ inputs.environment_name }}
           azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
@@ -99,37 +82,12 @@ jobs:
           vnet_name: ${{ secrets.VNET_NAME }}
           flyway_image: ${{ steps.image-tags.outputs.flyway-image }}
           api_image: ${{ steps.image-tags.outputs.api-image }}
-          app_env: ${{inputs.app_env}}
           stack_prefix: ${{ inputs.stack_prefix }}
           azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
           db_master_password: ${{ secrets.DB_MASTER_PASSWORD }}
           repo_name: ${{ github.event.repository.name }}
-          postgresql_server_fqdn: ${{ inputs.postgresql_server_fqdn }}
           frontend_image: ${{ steps.image-tags.outputs.frontend-image }}
       run: |
           # Run terraform
           terragrunt run-all ${{inputs.command}} --terragrunt-non-interactive
     
-    - name: Terragrunt Database Outputs
-      if: ( inputs.working_directory == 'database' && inputs.command == 'apply' )
-      working-directory: terraform/${{ inputs.working_directory }}/${{ inputs.environment_name }}
-      id: tg-outputs-database
-      env:
-          target_env: ${{ inputs.environment_name }}
-          azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-          vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }} 
-          vnet_name: ${{ secrets.VNET_NAME }}
-          flyway_image: ${{ steps.image-tags.outputs.flyway-image }}
-          api_image: ${{ steps.image-tags.outputs.api-image }}
-          app_env: ${{inputs.app_env}}
-          stack_prefix: ${{ inputs.stack_prefix }}
-          azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
-          db_master_password: ${{ secrets.DB_MASTER_PASSWORD }}
-          repo_name: ${{ github.event.repository.name }}
-          frontend_image: ${{ steps.image-tags.outputs.frontend-image }}
-      run: |
-          terragrunt output -json > outputs.json
-          #print the output
-          cat outputs.json
-          echo "POSTGRESQL_SERVER_FQDN=$(jq -r .postgresql_server_fqdn.value outputs.json)" >> $GITHUB_OUTPUT

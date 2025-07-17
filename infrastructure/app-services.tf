@@ -16,8 +16,8 @@ data "azurerm_subnet" "private_endpoint" {
 }
 
 # Data source for existing subnet for Container Apps/App Services
-data "azurerm_subnet" "container_apps" {
-  name                 = var.container_apps_subnet_name
+data "azurerm_subnet" "app_service" {
+  name                 = var.apps_service_subnet_name
   virtual_network_name = data.azurerm_virtual_network.main.name
   resource_group_name  = var.vnet_resource_group_name
 }
@@ -200,7 +200,7 @@ resource "azurerm_linux_web_app_slot" "api_flyway_webjob" {
   name           = "${var.app_name}-flyway-webjob"
   app_service_id = azurerm_linux_web_app.api.id
   # VNet integration for secure communication
-  virtual_network_subnet_id     = data.azurerm_subnet.container_apps.id
+  virtual_network_subnet_id     = data.azurerm_subnet.app_service.id
   public_network_access_enabled = false
   # Enable HTTPS only
   https_only = true
@@ -235,7 +235,7 @@ resource "azurerm_linux_web_app_slot" "api_flyway_webjob" {
   depends_on = [azurerm_linux_web_app.api]
 
   app_settings = {
-    "FLYWAY_URL"                          = "jdbc:postgresql://${var.postgresql_server_fqdn}/${var.database_name}?sslmode=require"
+    "FLYWAY_URL"                          = "jdbc:postgresql://${azurerm_postgresql_flexible_server.main.fqdn}/${var.database_name}?sslmode=require"
     "FLYWAY_USER"                         = var.postgresql_admin_username
     "FLYWAY_PASSWORD"                     = var.postgresql_admin_password
     "FLYWAY_BASELINE_ON_MIGRATE"          = "true"
@@ -281,7 +281,7 @@ resource "azurerm_linux_web_app" "api" {
   service_plan_id     = azurerm_service_plan.main.id
 
   # VNet integration for secure communication
-  virtual_network_subnet_id = data.azurerm_subnet.container_apps.id
+  virtual_network_subnet_id = data.azurerm_subnet.app_service.id
 
   # Enable HTTPS only
   https_only = true
@@ -331,7 +331,7 @@ resource "azurerm_linux_web_app" "api" {
     "APPINSIGHTS_INSTRUMENTATIONKEY"        = azurerm_application_insights.main.instrumentation_key
 
     # Database configuration using direct variables
-    "POSTGRES_HOST"                       = var.postgresql_server_fqdn
+    "POSTGRES_HOST"                       = azurerm_postgresql_flexible_server.main.fqdn
     "POSTGRES_USER"                       = var.postgresql_admin_username
     "POSTGRES_PASSWORD"                   = var.postgresql_admin_password
     "POSTGRES_DATABASE"                   = var.database_name
@@ -399,7 +399,7 @@ resource "azurerm_linux_web_app" "frontend" {
   service_plan_id     = azurerm_service_plan.frontend.id
 
   # VNet integration for secure communication - same subnet as API
-  virtual_network_subnet_id = data.azurerm_subnet.container_apps.id
+  virtual_network_subnet_id = data.azurerm_subnet.app_service.id
 
   # Enable HTTPS only
   https_only = true
@@ -558,7 +558,7 @@ resource "azurerm_linux_web_app" "psql_sidecar" {
   service_plan_id     = azurerm_service_plan.main.id
 
   # VNet integration for secure communication
-  virtual_network_subnet_id = data.azurerm_subnet.container_apps.id
+  virtual_network_subnet_id = data.azurerm_subnet.app_service.id
 
   # Enable HTTPS only
   https_only = true
@@ -612,7 +612,7 @@ resource "azurerm_linux_web_app" "psql_sidecar" {
     "CB_ADMIN_PASSWORD" = random_password.cloudbeaver_admin_password[0].result
 
     # PostgreSQL connection configuration for pre-configuration
-    "POSTGRES_HOST"     = var.postgresql_server_fqdn
+    "POSTGRES_HOST"     = azurerm_postgresql_flexible_server.main.fqdn
     "POSTGRES_USER"     = var.postgresql_admin_username
     "POSTGRES_PASSWORD" = var.postgresql_admin_password
     "POSTGRES_DATABASE" = var.database_name

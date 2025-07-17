@@ -1,3 +1,8 @@
+/**
+  * Terraform variables for Azure Container Apps and related resources
+  * This file defines the variables used across the infrastructure setup.
+  POSTGRES VARS
+*/
 variable "app_name" {
   description = "Name of the application"
   type        = string
@@ -84,15 +89,7 @@ variable "database_name" {
   default     = "app"
 }
 
-variable "subscription_id" {
-  description = "Azure subscription ID"
-  type        = string
-}
 
-variable "tenant_id" {
-  description = "Azure tenant ID"
-  type        = string
-}
 variable "db_master_password" {
   description = "Master password for the PostgreSQL server"
   type        = string
@@ -106,3 +103,95 @@ variable "common_tags" {
   description = "Common tags to apply to all resources"
   type        = map(string)
 }
+
+variable "apps_service_subnet_name" {
+  description = "Name of the subnet for Container Apps"
+  type        = string
+  default     = "app-service-subnet"
+}
+
+
+
+variable "postgresql_admin_password" {
+  description = "PostgreSQL admin password"
+  type        = string
+  sensitive   = true
+}
+
+
+variable "api_image" {
+  description = "The image for the API container"
+  type        = string
+}
+
+variable "flyway_image" {
+  description = "The image for the Flyway container"
+  type        = string
+}
+
+variable "frontend_image" {
+  description = "The image for the Frontend container"
+  type        = string
+}
+
+variable "node_env" {
+  description = "Node.js environment"
+  type        = string
+  default     = "production"
+}
+
+
+variable "enable_psql_sidecar" {
+  description = "Whether to enable the CloudBeaver database management container"
+  type        = bool
+  default     = false
+}
+
+variable "subscription_id" {
+  description = "Azure subscription ID"
+  type        = string
+}
+
+variable "tenant_id" {
+  description = "Azure tenant ID"
+  type        = string
+}
+
+
+variable "web_subnet_name" {
+  description = "Name of the web subnet for APIM deployment"
+  type        = string
+  default     = "web-subnet"
+}
+
+variable "private_endpoint_subnet_name" {
+  description = "Name of the subnet for private endpoints"
+  type        = string
+  default     = "privateendpoints-subnet"
+
+}
+
+
+variable "enable_app_service_logs" {
+  description = "Enable detailed logging for App Service"
+  type        = bool
+  default     = true
+}
+
+
+variable "create_container_registry" {
+  description = "Flag to create an Azure Container Registry"
+  type        = bool
+  default     = false
+}
+variable "enable_private_endpoint" {
+  description = "Enable private endpoint for PostgreSQL Flexible Server"
+  type        = bool
+  default     = false
+}
+
+variable "vnet_address_space" {
+  type        = string
+  description = "Address space for the virtual network, it is created by platform team"
+}
+

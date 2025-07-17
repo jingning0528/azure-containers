@@ -33,27 +33,13 @@ jobs:
   stack-prefix:
     name: Stack Prefix
     uses: ./.github/workflows/.stack-prefix.yml
-  deploy-db:
+  deploy:
     name: Deploys Database
     needs: [stack-prefix]
     uses: ./.github/workflows/.deployer.yml
     with:
       environment_name: ${{ inputs.environment_name }}
       command: ${{ inputs.command }}
-      working_directory: database
-      app_env: ${{ inputs.app_env }}
       stack_prefix: ${{ needs.stack-prefix.outputs.stack_prefix }}
     secrets: inherit
-  deploy-api:
-    name: Deploys API
-    needs: [deploy-db, stack-prefix]
-    uses: ./.github/workflows/.deployer.yml
-    with:
-      environment_name: ${{ inputs.environment_name }}
-      command: ${{ inputs.command }}
-      tag: ${{ inputs.tag }}
-      app_env: ${{ inputs.app_env }}
-      working_directory: api
-      stack_prefix: ${{ needs.stack-prefix.outputs.stack_prefix }}
-      postgresql_server_fqdn: ${{ needs.deploy-db.outputs.postgresql_server_fqdn }}
-    secrets: inherit
+

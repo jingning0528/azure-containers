@@ -1,12 +1,6 @@
 # Azure PostgreSQL Flexible Server for Landing Zone compatibility
-
 data "azurerm_client_config" "current" {}
 
-# Data source for existing virtual network, which is created as part of Initial Setup
-data "azurerm_virtual_network" "main" {
-  name                = var.vnet_name
-  resource_group_name = var.vnet_resource_group_name
-}
 
 # Data source for existing private endpoints subnet
 data "azurerm_subnet" "private_endpoints" {

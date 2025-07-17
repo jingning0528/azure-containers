@@ -19,7 +19,7 @@ locals {
 resource "azurerm_network_security_group" "privateendpoints" {
   name                = "${var.resource_group_name}-pe-nsg"
   location            = var.location
-  resource_group_name = var.resource_group_name
+  resource_group_name = var.vnet_resource_group_name
 
   security_rule {
     name                   = "AllowInboundFromApp"
@@ -87,7 +87,7 @@ resource "azurerm_network_security_group" "privateendpoints" {
 resource "azurerm_network_security_group" "app_service" {
   name                = "${var.resource_group_name}-as-nsg"
   location            = var.location
-  resource_group_name = var.resource_group_name
+  resource_group_name = var.vnet_resource_group_name
 
   security_rule {
     name                   = "AllowAppFromPrivateEndpoint"
@@ -174,7 +174,7 @@ resource "azurerm_network_security_group" "app_service" {
 resource "azurerm_network_security_group" "web" {
   name                = "${var.resource_group_name}-web-nsg"
   location            = var.location
-  resource_group_name = var.resource_group_name
+  resource_group_name = var.vnet_resource_group_name
 
   security_rule {
     name                    = "AllowHTTPFromInternet"
@@ -210,7 +210,7 @@ resource "azurerm_network_security_group" "web" {
 resource "azurerm_network_security_group" "container_instance" {
   name                = "${var.resource_group_name}-ci-nsg"
   location            = var.location
-  resource_group_name = var.resource_group_name
+  resource_group_name = var.vnet_resource_group_name
 
   security_rule {
     name                    = "AllowInboundFromAppService"

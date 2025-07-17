@@ -90,6 +90,12 @@ resource "azurerm_network_security_group" "privateendpoints" {
     source_port_range          = "*"
     destination_port_range     = "*"
   }
+  tags = var.common_tags
+  lifecycle {
+    ignore_changes = [
+      tags
+    ]
+  }
 }
 
 # NSG for app service subnet
@@ -190,6 +196,12 @@ resource "azurerm_network_security_group" "app_service" {
     source_port_range          = "*"
     destination_port_ranges    = ["80", "443"]
   }
+  tags = var.common_tags
+  lifecycle {
+    ignore_changes = [
+      tags
+    ]
+  }
 }
 
 # NSG for web subnet
@@ -265,6 +277,12 @@ resource "azurerm_network_security_group" "web" {
     source_port_range          = "*"
     destination_port_ranges    = ["3000-9000"]
   }
+  tags = var.common_tags
+  lifecycle {
+    ignore_changes = [
+      tags
+    ]
+  }
 }
 resource "azurerm_network_security_group" "container_instance" {
   name                = "${var.resource_group_name}-ci-nsg"
@@ -339,6 +357,12 @@ resource "azurerm_network_security_group" "container_instance" {
     source_port_range          = "*"
     destination_port_ranges    = ["80", "443"]
   }
+  tags = var.common_tags
+  lifecycle {
+    ignore_changes = [
+      tags
+    ]
+  }
 }
 
 # Subnets
@@ -356,6 +380,12 @@ resource "azapi_resource" "privateendpoints_subnet" {
     }
   }
   response_export_values = ["*"]
+  tags                   = var.common_tags
+  lifecycle {
+    ignore_changes = [
+      tags
+    ]
+  }
 }
 
 resource "azapi_resource" "app_service_subnet" {
@@ -380,6 +410,12 @@ resource "azapi_resource" "app_service_subnet" {
     }
   }
   response_export_values = ["*"]
+  tags                   = var.common_tags
+  lifecycle {
+    ignore_changes = [
+      tags
+    ]
+  }
 }
 
 resource "azapi_resource" "container_instance_subnet" {
@@ -404,6 +440,12 @@ resource "azapi_resource" "container_instance_subnet" {
     }
   }
   response_export_values = ["*"]
+  tags                   = var.common_tags
+  lifecycle {
+    ignore_changes = [
+      tags
+    ]
+  }
 }
 
 resource "azapi_resource" "web_subnet" {
@@ -420,4 +462,10 @@ resource "azapi_resource" "web_subnet" {
     }
   }
   response_export_values = ["*"]
+  tags                   = var.common_tags
+  lifecycle {
+    ignore_changes = [
+      tags
+    ]
+  }
 }

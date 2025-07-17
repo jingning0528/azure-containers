@@ -381,11 +381,6 @@ resource "azapi_resource" "privateendpoints_subnet" {
   }
   response_export_values = ["*"]
   tags                   = var.common_tags
-  lifecycle {
-    ignore_changes = [
-      tags
-    ]
-  }
 }
 
 resource "azapi_resource" "app_service_subnet" {
@@ -410,12 +405,6 @@ resource "azapi_resource" "app_service_subnet" {
     }
   }
   response_export_values = ["*"]
-  tags                   = var.common_tags
-  lifecycle {
-    ignore_changes = [
-      tags
-    ]
-  }
 }
 
 resource "azapi_resource" "container_instance_subnet" {
@@ -440,12 +429,6 @@ resource "azapi_resource" "container_instance_subnet" {
     }
   }
   response_export_values = ["*"]
-  tags                   = var.common_tags
-  lifecycle {
-    ignore_changes = [
-      tags
-    ]
-  }
 }
 
 resource "azapi_resource" "web_subnet" {
@@ -462,10 +445,4 @@ resource "azapi_resource" "web_subnet" {
     }
   }
   response_export_values = ["*"]
-  tags                   = var.common_tags
-  lifecycle {
-    ignore_changes = [
-      tags
-    ]
-  }
 }

@@ -338,13 +338,14 @@ resource "azurerm_network_security_group" "container_instance" {
   }
 
   security_rule {
-    name                    = "AllowInboundFromInternet"
-    priority                = 110
-    direction               = "Inbound"
-    access                  = "Allow"
-    protocol                = "Tcp"
-    source_address_prefix   = "*"
-    destination_port_ranges = ["80", "443"]
+    name                       = "AllowInboundFromInternet"
+    priority                   = 110
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_address_prefix      = "*"
+    destination_address_prefix = local.container_instance_subnet_cidr
+    destination_port_ranges    = ["80", "443"]
   }
 
   security_rule {
@@ -354,6 +355,7 @@ resource "azurerm_network_security_group" "container_instance" {
     access                     = "Allow"
     protocol                   = "Tcp"
     destination_address_prefix = "*"
+    source_address_prefix      = local.container_instance_subnet_cidr
     source_port_range          = "*"
     destination_port_ranges    = ["80", "443"]
   }

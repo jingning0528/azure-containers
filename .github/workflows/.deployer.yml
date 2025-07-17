@@ -87,6 +87,7 @@ jobs:
           db_master_password: ${{ secrets.DB_MASTER_PASSWORD }}
           repo_name: ${{ github.event.repository.name }}
           frontend_image: ${{ steps.image-tags.outputs.frontend-image }}
+          app_env: ${{ inputs.app_env }}
       run: |
           # Run terraform
           terragrunt run-all ${{inputs.command}} --terragrunt-non-interactive

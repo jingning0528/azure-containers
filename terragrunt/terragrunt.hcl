@@ -12,7 +12,7 @@ locals {
   vnet_name                = get_env("vnet_name")               # this is the name of the existing VNet
   storage_account_name     = "qacatfstate${local.target_env}" # this is created by the initial setup script, make sure it matches the one used in the initial setup.
   target_env               = get_env("target_env")              
-  app_env                  = get_env("target_env")                
+  app_env                  = get_env("app_env")                # this is the environment for the application (dev, test, prod)
   azure_subscription_id    = get_env("azure_subscription_id")
   azure_tenant_id          = get_env("azure_tenant_id")
   azure_client_id          = get_env("azure_client_id")         # this is the client ID of the Azure service principal

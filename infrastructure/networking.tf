@@ -129,13 +129,13 @@ resource "azurerm_network_security_group" "app_service" {
     destination_port_range     = "*"
   }
   security_rule {
-    name                    = "AllowAppFromWeb"
-    priority                = 100
-    direction               = "Inbound"
-    access                  = "Allow"
-    protocol                = "Tcp"
-    source_address_prefix   = local.web_subnet_cidr
-    destination_port_ranges = "*"
+    name                   = "AllowAppFromWeb"
+    priority               = 100
+    direction              = "Inbound"
+    access                 = "Allow"
+    protocol               = "Tcp"
+    source_address_prefix  = local.web_subnet_cidr
+    destination_port_range = "*"
   }
 
   security_rule {
@@ -146,7 +146,7 @@ resource "azurerm_network_security_group" "app_service" {
     protocol                   = "Tcp"
     destination_address_prefix = local.web_subnet_cidr
     source_port_range          = "*"
-    destination_port_ranges    = "*"
+    destination_port_range     = "*"
   }
 
   security_rule {

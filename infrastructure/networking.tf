@@ -29,6 +29,7 @@ resource "azurerm_network_security_group" "privateendpoints" {
     protocol               = "*"
     source_address_prefix  = local.app_service_subnet_cidr
     destination_port_range = "*"
+    source_port_range = "*"
   }
 
   security_rule {
@@ -164,6 +165,7 @@ resource "azurerm_network_security_group" "app_service" {
     direction                  = "Outbound"
     access                     = "Allow"
     protocol                   = "Tcp"
+    source_address_prefix      = local.app_service_subnet_cidr
     destination_address_prefix = "*"
     source_port_range          = "*"
     destination_port_ranges    = ["80", "443"]
@@ -192,6 +194,7 @@ resource "azurerm_network_security_group" "web" {
     access                     = "Allow"
     protocol                   = "*"
     destination_address_prefix = local.app_service_subnet_cidr
+    source_address_prefix      = local.web_subnet_cidr
     source_port_range          = "*"
     destination_port_ranges    = ["3000-9000"]
   }
@@ -219,6 +222,7 @@ resource "azurerm_network_security_group" "container_instance" {
     access                  = "Allow"
     protocol                = "*"
     source_address_prefix   = local.app_service_subnet_cidr
+    source_port_ranges      = ["3000-9000"]
     destination_port_ranges = ["3000-9000"]
   }
 
@@ -229,7 +233,7 @@ resource "azurerm_network_security_group" "container_instance" {
     access                     = "Allow"
     protocol                   = "*"
     destination_address_prefix = local.app_service_subnet_cidr
-    source_port_range          = "*"
+    source_port_ranges         = ["3000-9000"]
     destination_port_ranges    = ["3000-9000"]
   }
 
@@ -239,6 +243,7 @@ resource "azurerm_network_security_group" "container_instance" {
     direction               = "Inbound"
     access                  = "Allow"
     protocol                = "Tcp"
+    source_port_range       = "*"
     source_address_prefix   = local.web_subnet_cidr
     destination_port_ranges = ["3000-9000"]
   }

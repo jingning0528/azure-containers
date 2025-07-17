@@ -169,14 +169,15 @@ resource "azurerm_network_security_group" "app_service" {
   }
 
   security_rule {
-    name                    = "AllowAppFromInternet"
-    priority                = 110
-    direction               = "Inbound"
-    access                  = "Allow"
-    protocol                = "Tcp"
-    source_address_prefix   = "*"
-    source_port_range       = "*"
-    destination_port_ranges = ["80", "443"]
+    name                       = "AllowAppFromInternet"
+    priority                   = 110
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_address_prefix      = "*"
+    source_port_range          = "*"
+    destination_address_prefix = local.app_service_subnet_cidr
+    destination_port_ranges    = ["80", "443"]
   }
   security_rule {
     name                       = "AllowAppOutboundToInternet"
@@ -198,14 +199,26 @@ resource "azurerm_network_security_group" "web" {
   resource_group_name = var.vnet_resource_group_name
 
   security_rule {
-    name                    = "AllowHTTPFromInternet"
-    priority                = 100
-    direction               = "Inbound"
-    access                  = "Allow"
-    protocol                = "Tcp"
-    source_address_prefix   = "*"
-    source_port_range       = "*"
-    destination_port_ranges = ["80", "443"]
+    name                       = "AllowHTTPFromInternet"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_address_prefix      = "*"
+    source_port_range          = "*"
+    destination_address_prefix = local.web_subnet_cidr
+    destination_port_ranges    = ["80", "443"]
+  }
+  security_rule {
+    name                       = "AllowOutboundToInternet"
+    priority                   = 120
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_address_prefix      = local.web_subnet_cidr
+    destination_address_prefix = "*"
+    source_port_range          = "*"
+    destination_port_ranges    = ["80", "443"]
   }
   security_rule {
     name                       = "AllowOutboundToApp"
@@ -218,6 +231,17 @@ resource "azurerm_network_security_group" "web" {
     source_port_range          = "*"
     destination_port_ranges    = ["3000-9000"]
   }
+  security_rule {
+    name                       = "AllowInboundFromAppService"
+    priority                   = 104
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_address_prefix      = local.app_service_subnet_cidr
+    destination_address_prefix = local.web_subnet_cidr
+    source_port_range          = "*"
+    destination_port_ranges    = ["3000-9000"]
+  }
 
   security_rule {
     name                       = "AllowOutboundToContainerInstance"
@@ -227,6 +251,17 @@ resource "azurerm_network_security_group" "web" {
     protocol                   = "*"
     destination_address_prefix = local.container_instance_subnet_cidr
     source_address_prefix      = local.web_subnet_cidr
+    source_port_range          = "*"
+    destination_port_ranges    = ["3000-9000"]
+  }
+  security_rule {
+    name                       = "AllowInboundFromContainerInstance"
+    priority                   = 105
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_address_prefix      = local.container_instance_subnet_cidr
+    destination_address_prefix = local.web_subnet_cidr
     source_port_range          = "*"
     destination_port_ranges    = ["3000-9000"]
   }
@@ -312,14 +347,14 @@ resource "azapi_resource" "privateendpoints_subnet" {
   name      = "privateendpoints-subnet"
   parent_id = data.azurerm_virtual_network.vnet.id
   locks     = [data.azurerm_virtual_network.vnet.id]
-  body = jsonencode({
+  body = {
     properties = {
       addressPrefix = local.private_endpoints_subnet_cidr
       networkSecurityGroup = {
         id = azurerm_network_security_group.privateendpoints.id
       }
     }
-  })
+  }
   response_export_values = ["*"]
 }
 
@@ -328,7 +363,7 @@ resource "azapi_resource" "app_service_subnet" {
   name      = "app-service-subnet"
   parent_id = data.azurerm_virtual_network.vnet.id
   locks     = [data.azurerm_virtual_network.vnet.id]
-  body = jsonencode({
+  body = {
     properties = {
       addressPrefix = local.app_service_subnet_cidr
       networkSecurityGroup = {
@@ -343,7 +378,7 @@ resource "azapi_resource" "app_service_subnet" {
         }
       ]
     }
-  })
+  }
   response_export_values = ["*"]
 }
 
@@ -352,7 +387,7 @@ resource "azapi_resource" "container_instance_subnet" {
   name      = "container-instance-subnet"
   parent_id = data.azurerm_virtual_network.vnet.id
   locks     = [data.azurerm_virtual_network.vnet.id]
-  body = jsonencode({
+  body = {
     properties = {
       addressPrefix = local.container_instance_subnet_cidr
       networkSecurityGroup = {
@@ -367,7 +402,7 @@ resource "azapi_resource" "container_instance_subnet" {
         }
       ]
     }
-  })
+  }
   response_export_values = ["*"]
 }
 
@@ -376,13 +411,13 @@ resource "azapi_resource" "web_subnet" {
   name      = "web-subnet"
   parent_id = data.azurerm_virtual_network.vnet.id
   locks     = [data.azurerm_virtual_network.vnet.id]
-  body = jsonencode({
+  body = {
     properties = {
       addressPrefix = local.web_subnet_cidr
       networkSecurityGroup = {
         id = azurerm_network_security_group.web.id
       }
     }
-  })
+  }
   response_export_values = ["*"]
 }

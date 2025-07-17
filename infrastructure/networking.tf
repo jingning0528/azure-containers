@@ -397,7 +397,7 @@ resource "azapi_resource" "app_service_subnet" {
         {
           name = "app-service-delegation"
           properties = {
-            serviceName = "Microsoft.App/ServerFarm"
+            serviceName = "Microsoft.Web/serverFarms"
           }
         }
       ]

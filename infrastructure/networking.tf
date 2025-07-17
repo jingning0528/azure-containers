@@ -380,7 +380,6 @@ resource "azapi_resource" "privateendpoints_subnet" {
     }
   }
   response_export_values = ["*"]
-  tags                   = var.common_tags
 }
 
 resource "azapi_resource" "app_service_subnet" {

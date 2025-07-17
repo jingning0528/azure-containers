@@ -12,6 +12,8 @@ export class HealthController {
   @Get()
   @HealthCheck()
   check() {
+    console.log("Health check initiated");
+    console.log("users");
     return this.health.check([
       () => this.prisma.pingCheck('prisma', this.prismaService),
     ]);

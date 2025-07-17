@@ -41,5 +41,6 @@ jobs:
       environment_name: ${{ inputs.environment_name }}
       command: ${{ inputs.command }}
       stack_prefix: ${{ needs.stack-prefix.outputs.stack_prefix }}
+      app_env: ${{ inputs.app_env }}
     secrets: inherit
 

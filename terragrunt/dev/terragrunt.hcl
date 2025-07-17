@@ -7,6 +7,5 @@ generate "dev_tfvars" {
   disable_signature = true
   contents          = <<-EOF
   enable_psql_sidecar   = true
-}
 EOF
 }

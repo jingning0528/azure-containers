@@ -110,8 +110,6 @@ variable "apps_service_subnet_name" {
   default     = "app-service-subnet"
 }
 
-
-
 variable "postgresql_admin_password" {
   description = "PostgreSQL admin password"
   type        = string
@@ -195,3 +193,8 @@ variable "vnet_address_space" {
   description = "Address space for the virtual network, it is created by platform team"
 }
 
+variable "repo_name" {
+  description = "Name of the repository, used for resource naming"
+  type        = string
+  default     = "quickstart-azure-containers"
+}

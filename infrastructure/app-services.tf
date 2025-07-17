@@ -275,7 +275,7 @@ resource "null_resource" "trigger_flyway_webjob" {
 
 # App Service for API backend with container
 resource "azurerm_linux_web_app" "api" {
-  name                = "${var.app_name}-api-app"
+  name                = "${var.repo_name}-${var.app_env}-api"
   resource_group_name = var.resource_group_name # the database module creates the resource group
   location            = var.location
   service_plan_id     = azurerm_service_plan.main.id
@@ -393,7 +393,7 @@ resource "azurerm_service_plan" "frontend" {
 
 # App Service for Frontend with container
 resource "azurerm_linux_web_app" "frontend" {
-  name                = "${var.app_name}-frontend-app"
+  name                = "${var.repo_name}-${var.app_env}-frontend"
   resource_group_name = var.resource_group_name # the database module creates the resource group
   location            = var.location
   service_plan_id     = azurerm_service_plan.frontend.id
@@ -552,7 +552,7 @@ resource "random_password" "cloudbeaver_admin_password" {
 # App Service for CloudBeaver database management
 resource "azurerm_linux_web_app" "psql_sidecar" {
   count               = var.enable_psql_sidecar ? 1 : 0
-  name                = "${var.app_name}-cb-app"
+  name                = "${var.repo_name}-${var.app_env}-cloudbeaver"
   resource_group_name = var.resource_group_name # the database module creates the resource group
   location            = var.location
   service_plan_id     = azurerm_service_plan.main.id

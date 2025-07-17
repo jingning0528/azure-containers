@@ -9,13 +9,13 @@ locals {
   frontend_image           = get_env("frontend_image")
   api_image                = get_env("api_image")
   vnet_resource_group_name = get_env("vnet_resource_group_name") # this is the resource group where the VNet exists and initial setup was done.
-  vnet_name                = get_env("vnet_name")               # this is the name of the existing VNet
-  storage_account_name     = "qacatfstate${local.target_env}" # this is created by the initial setup script, make sure it matches the one used in the initial setup.
-  target_env               = get_env("target_env")              
-  app_env                  = get_env("app_env")                # this is the environment for the application (dev, test, prod)
+  vnet_name                = get_env("vnet_name")                # this is the name of the existing VNet
+  storage_account_name     = "qacatfstate${local.target_env}"    # this is created by the initial setup script, make sure it matches the one used in the initial setup.
+  target_env               = get_env("target_env")
+  app_env                  = get_env("app_env") # this is the environment for the application (dev, test, prod)
   azure_subscription_id    = get_env("azure_subscription_id")
   azure_tenant_id          = get_env("azure_tenant_id")
-  azure_client_id          = get_env("azure_client_id")         # this is the client ID of the Azure service principal
+  azure_client_id          = get_env("azure_client_id") # this is the client ID of the Azure service principal
   statefile_key            = "${local.stack_prefix}/${local.app_env}/terraform.tfstate"
   container_name           = "tfstate"
 }
@@ -24,7 +24,7 @@ locals {
 generate "remote_state" {
   path      = "backend.tf"
   if_exists = "overwrite"
-  contents = <<EOF
+  contents  = <<EOF
 terraform {
   backend "azurerm" {
     resource_group_name  = "${local.vnet_resource_group_name}"
@@ -44,7 +44,7 @@ generate "tfvars" {
   path              = "terragrunt.auto.tfvars"
   if_exists         = "overwrite"
   disable_signature = true
-  contents = <<-EOF
+  contents          = <<-EOF
 resource_group_name      = "${get_env("repo_name")}-${local.app_env}"
 app_name                 = "${local.stack_prefix}-${local.app_env}"
 app_env                  = "${local.app_env}"
@@ -71,7 +71,7 @@ EOF
 generate "provider" {
   path      = "provider.tf"
   if_exists = "overwrite"
-  contents = <<EOF
+  contents  = <<EOF
 terraform {
   required_providers {
     azurerm = {

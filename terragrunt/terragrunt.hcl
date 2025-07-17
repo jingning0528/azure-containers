@@ -16,7 +16,7 @@ locals {
   azure_subscription_id    = get_env("azure_subscription_id")
   azure_tenant_id          = get_env("azure_tenant_id")
   azure_client_id          = get_env("azure_client_id")         # this is the client ID of the Azure service principal
-  statefile_key            = "${local.stack_prefix}/${local.target_env}/terraform.tfstate"
+  statefile_key            = "${local.stack_prefix}/${local.app_env}/terraform.tfstate"
   container_name           = "tfstate"
 }
 

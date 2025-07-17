@@ -327,7 +327,7 @@ resource "azapi_resource" "container_instance_subnet" {
     properties = {
       addressPrefix = local.container_instance_subnet_cidr
       networkSecurityGroup = {
-        id = azurerm_network_security_group.app-service.id
+        id = azurerm_network_security_group.container_instance.id
       }
       delegations = [
         {
@@ -357,4 +357,3 @@ resource "azapi_resource" "web_subnet" {
   })
   response_export_values = ["*"]
 }
-// NSG associations are now handled in azapi_resource subnet creation

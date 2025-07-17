@@ -22,14 +22,15 @@ resource "azurerm_network_security_group" "privateendpoints" {
   resource_group_name = var.vnet_resource_group_name
 
   security_rule {
-    name                   = "AllowInboundFromApp"
-    priority               = 100
-    direction              = "Inbound"
-    access                 = "Allow"
-    protocol               = "*"
-    source_address_prefix  = local.app_service_subnet_cidr
-    destination_port_range = "*"
-    source_port_range = "*"
+    name                       = "AllowInboundFromApp"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_address_prefix      = local.app_service_subnet_cidr
+    destination_address_prefix = local.private_endpoints_subnet_cidr
+    destination_port_range     = "*"
+    source_port_range          = "*"
   }
 
   security_rule {
@@ -39,17 +40,20 @@ resource "azurerm_network_security_group" "privateendpoints" {
     access                     = "Allow"
     protocol                   = "*"
     destination_address_prefix = local.app_service_subnet_cidr
+    source_address_prefix      = local.private_endpoints_subnet_cidr
     source_port_range          = "*"
     destination_port_range     = "*"
   }
   security_rule {
-    name                   = "AllowInboundFromContainerInstance"
-    priority               = 104
-    direction              = "Inbound"
-    access                 = "Allow"
-    protocol               = "*"
-    source_address_prefix  = local.container_instance_subnet_cidr
-    destination_port_range = "*"
+    name                       = "AllowInboundFromContainerInstance"
+    priority                   = 104
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_address_prefix      = local.container_instance_subnet_cidr
+    destination_address_prefix = local.private_endpoints_subnet_cidr
+    destination_port_range     = "*"
+    source_port_range          = "*"
   }
 
   security_rule {
@@ -59,17 +63,20 @@ resource "azurerm_network_security_group" "privateendpoints" {
     access                     = "Allow"
     protocol                   = "*"
     destination_address_prefix = local.container_instance_subnet_cidr
+    source_address_prefix      = local.private_endpoints_subnet_cidr
     source_port_range          = "*"
     destination_port_range     = "*"
   }
   security_rule {
-    name                   = "AllowInboundFromWeb"
-    priority               = 102
-    direction              = "Inbound"
-    access                 = "Allow"
-    protocol               = "*"
-    source_address_prefix  = local.web_subnet_cidr
-    destination_port_range = "*"
+    name                       = "AllowInboundFromWeb"
+    priority                   = 102
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_address_prefix      = local.web_subnet_cidr
+    source_port_range          = "*"
+    destination_address_prefix = local.private_endpoints_subnet_cidr
+    destination_port_range     = "*"
   }
 
   security_rule {
@@ -92,13 +99,15 @@ resource "azurerm_network_security_group" "app_service" {
   resource_group_name = var.vnet_resource_group_name
 
   security_rule {
-    name                   = "AllowAppFromPrivateEndpoint"
-    priority               = 102
-    direction              = "Inbound"
-    access                 = "Allow"
-    protocol               = "*"
-    source_address_prefix  = local.private_endpoints_subnet_cidr
-    destination_port_range = "*"
+    name                       = "AllowAppFromPrivateEndpoint"
+    priority                   = 102
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_address_prefix      = local.private_endpoints_subnet_cidr
+    source_port_range          = "*"
+    destination_address_prefix = local.app_service_subnet_cidr
+    destination_port_range     = "*"
   }
 
   security_rule {
@@ -108,17 +117,20 @@ resource "azurerm_network_security_group" "app_service" {
     access                     = "Allow"
     protocol                   = "*"
     destination_address_prefix = local.private_endpoints_subnet_cidr
+    source_address_prefix      = local.app_service_subnet_cidr
     source_port_range          = "*"
     destination_port_range     = "*"
   }
   security_rule {
-    name                   = "AllowAppFromContainerInstance"
-    priority               = 104
-    direction              = "Inbound"
-    access                 = "Allow"
-    protocol               = "*"
-    source_address_prefix  = local.container_instance_subnet_cidr
-    destination_port_range = "*"
+    name                       = "AllowAppFromContainerInstance"
+    priority                   = 104
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_address_prefix      = local.container_instance_subnet_cidr
+    source_port_range          = "*"
+    destination_address_prefix = local.app_service_subnet_cidr
+    destination_port_range     = "*"
   }
 
   security_rule {
@@ -129,15 +141,19 @@ resource "azurerm_network_security_group" "app_service" {
     protocol                   = "*"
     destination_address_prefix = local.container_instance_subnet_cidr
     destination_port_range     = "*"
+    source_address_prefix      = local.app_service_subnet_cidr
+    source_port_range          = "*"
   }
   security_rule {
-    name                   = "AllowAppFromWeb"
-    priority               = 100
-    direction              = "Inbound"
-    access                 = "Allow"
-    protocol               = "Tcp"
-    source_address_prefix  = local.web_subnet_cidr
-    destination_port_range = "*"
+    name                       = "AllowAppFromWeb"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_address_prefix      = local.web_subnet_cidr
+    destination_port_range     = "*"
+    source_port_range          = "*"
+    destination_address_prefix = local.app_service_subnet_cidr
   }
 
   security_rule {
@@ -149,6 +165,7 @@ resource "azurerm_network_security_group" "app_service" {
     destination_address_prefix = local.web_subnet_cidr
     source_port_range          = "*"
     destination_port_range     = "*"
+    source_address_prefix      = local.app_service_subnet_cidr
   }
 
   security_rule {
@@ -209,6 +226,7 @@ resource "azurerm_network_security_group" "web" {
     access                     = "Allow"
     protocol                   = "*"
     destination_address_prefix = local.container_instance_subnet_cidr
+    source_address_prefix      = local.web_subnet_cidr
     source_port_range          = "*"
     destination_port_ranges    = ["3000-9000"]
   }
@@ -219,14 +237,15 @@ resource "azurerm_network_security_group" "container_instance" {
   resource_group_name = var.vnet_resource_group_name
 
   security_rule {
-    name                    = "AllowInboundFromAppService"
-    priority                = 100
-    direction               = "Inbound"
-    access                  = "Allow"
-    protocol                = "*"
-    source_address_prefix   = local.app_service_subnet_cidr
-    source_port_ranges      = ["3000-9000"]
-    destination_port_ranges = ["3000-9000"]
+    name                       = "AllowInboundFromAppService"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_address_prefix      = local.app_service_subnet_cidr
+    destination_address_prefix = local.container_instance_subnet_cidr
+    source_port_ranges         = ["3000-9000"]
+    destination_port_ranges    = ["3000-9000"]
   }
 
   security_rule {
@@ -236,20 +255,21 @@ resource "azurerm_network_security_group" "container_instance" {
     access                     = "Allow"
     protocol                   = "*"
     destination_address_prefix = local.app_service_subnet_cidr
+    source_address_prefix      = local.container_instance_subnet_cidr
     source_port_ranges         = ["3000-9000"]
     destination_port_ranges    = ["3000-9000"]
   }
 
   security_rule {
-    name                    = "AllowInboundFromWeb"
-    priority                = 102
-    direction               = "Inbound"
-    access                  = "Allow"
-    protocol                = "Tcp"
-    source_port_range       = "*"
-    source_address_prefix   = local.web_subnet_cidr
+    name                       = "AllowInboundFromWeb"
+    priority                   = 102
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    source_address_prefix      = local.web_subnet_cidr
     destination_address_prefix = local.web_subnet_cidr
-    destination_port_ranges = ["3000-9000"]
+    destination_port_ranges    = ["3000-9000"]
   }
 
   security_rule {
@@ -259,6 +279,7 @@ resource "azurerm_network_security_group" "container_instance" {
     access                     = "Allow"
     protocol                   = "Tcp"
     destination_address_prefix = local.web_subnet_cidr
+    source_address_prefix      = local.container_instance_subnet_cidr
     source_port_range          = "*"
     destination_port_ranges    = ["3000-9000"]
   }

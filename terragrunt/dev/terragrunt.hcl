@@ -6,7 +6,7 @@ generate "dev_tfvars" {
   if_exists         = "overwrite"
   disable_signature = true
   contents          = <<-EOF
-  "enable_psql_sidecar"   = true
+  enable_psql_sidecar   = true
 }
 EOF
 }

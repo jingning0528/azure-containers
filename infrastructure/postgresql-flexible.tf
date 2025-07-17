@@ -7,6 +7,7 @@ data "azurerm_subnet" "private_endpoints" {
   name                 = "privateendpoints-subnet"
   virtual_network_name = data.azurerm_virtual_network.main.name
   resource_group_name  = var.vnet_resource_group_name
+  depends_on = [ azapi_resource.privateendpoints_subnet ]
 }
 # Create the main resource group for all application resources
 resource "azurerm_resource_group" "main" {

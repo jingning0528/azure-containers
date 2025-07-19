@@ -1,20 +1,3 @@
-data "azurerm_virtual_network" "vnet" {
-  name                = var.vnet_name
-  resource_group_name = var.vnet_resource_group_name
-}
-# Calculate subnet CIDRs based on VNet address space
-locals {
-  # Split the address space
-  vnet_ip_base                   = split("/", var.vnet_address_space)[0]
-  vnet_prefix                    = tonumber(split("/", var.vnet_address_space)[1])
-  octets                         = split(".", local.vnet_ip_base)
-  base_ip                        = "${local.octets[0]}.${local.octets[1]}.${local.octets[2]}"
-  app_service_subnet_cidr        = "${local.base_ip}.0/27"
-  web_subnet_cidr                = "${local.base_ip}.32/27"
-  private_endpoints_subnet_cidr  = "${local.base_ip}.64/28"
-  container_instance_subnet_cidr = "${local.base_ip}.80/28"
-}
-
 # NSG for privateendpoints subnet
 resource "azurerm_network_security_group" "privateendpoints" {
   name                = "${var.resource_group_name}-pe-nsg"
@@ -371,9 +354,9 @@ resource "azurerm_network_security_group" "container_instance" {
 # Subnets
 resource "azapi_resource" "privateendpoints_subnet" {
   type      = "Microsoft.Network/virtualNetworks/subnets@2023-04-01"
-  name      = "privateendpoints-subnet"
-  parent_id = data.azurerm_virtual_network.vnet.id
-  locks     = [data.azurerm_virtual_network.vnet.id]
+  name      = var.private_endpoint_subnet_name
+  parent_id = data.azurerm_virtual_network.main.id
+  locks     = [data.azurerm_virtual_network.main.id]
   body = {
     properties = {
       addressPrefix = local.private_endpoints_subnet_cidr
@@ -387,9 +370,9 @@ resource "azapi_resource" "privateendpoints_subnet" {
 
 resource "azapi_resource" "app_service_subnet" {
   type      = "Microsoft.Network/virtualNetworks/subnets@2023-04-01"
-  name      = "app-service-subnet"
-  parent_id = data.azurerm_virtual_network.vnet.id
-  locks     = [data.azurerm_virtual_network.vnet.id]
+  name      = var.apps_service_subnet_name
+  parent_id = data.azurerm_virtual_network.main.id
+  locks     = [data.azurerm_virtual_network.main.id]
   body = {
     properties = {
       addressPrefix = local.app_service_subnet_cidr
@@ -411,9 +394,9 @@ resource "azapi_resource" "app_service_subnet" {
 
 resource "azapi_resource" "container_instance_subnet" {
   type      = "Microsoft.Network/virtualNetworks/subnets@2023-04-01"
-  name      = "container-instance-subnet"
-  parent_id = data.azurerm_virtual_network.vnet.id
-  locks     = [data.azurerm_virtual_network.vnet.id]
+  name      = var.container_instance_subnet_name
+  parent_id = data.azurerm_virtual_network.main.id
+  locks     = [data.azurerm_virtual_network.main.id]
   body = {
     properties = {
       addressPrefix = local.container_instance_subnet_cidr
@@ -435,9 +418,9 @@ resource "azapi_resource" "container_instance_subnet" {
 
 resource "azapi_resource" "web_subnet" {
   type      = "Microsoft.Network/virtualNetworks/subnets@2023-04-01"
-  name      = "web-subnet"
-  parent_id = data.azurerm_virtual_network.vnet.id
-  locks     = [data.azurerm_virtual_network.vnet.id]
+  name      = var.web_subnet_name
+  parent_id = data.azurerm_virtual_network.main.id
+  locks     = [data.azurerm_virtual_network.main.id]
   body = {
     properties = {
       addressPrefix = local.web_subnet_cidr

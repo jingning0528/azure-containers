@@ -62,6 +62,26 @@ resource "azurerm_linux_web_app" "backend" {
       allowed_origins     = ["*"] # Allow all origins - customize as needed for production
       support_credentials = false
     }
+    
+    dynamic "ip_restriction" {
+      for_each = split(",", azurerm_linux_web_app.frontend.possible_outbound_ip_addresses)
+      content {
+        ip_address = ip_restriction.value != "" ? "${ip_restriction.value}/32" : null
+        virtual_network_subnet_id = ip_restriction.value == "" ? data.azurerm_subnet.app_service.id : null
+        service_tag = ip_restriction.value == "" ? "AppService" : null
+        action     = "Allow"
+        name       = "AFOutbound${replace(ip_restriction.value, ".", "")}"
+        priority   = 100
+      }
+    }
+    ip_restriction {
+      name        = "DenyAll"
+      action      = "Deny"
+      priority    = 500
+      ip_address  = "0.0.0.0/0"
+      description = "Deny all other traffic"
+    }
+    ip_restriction_default_action = "Deny"
   }
 
   # Application settings
@@ -69,7 +89,6 @@ resource "azurerm_linux_web_app" "backend" {
     "NODE_ENV"                              = var.node_env
     "PORT"                                  = "80"
     "WEBSITES_PORT"                         = "3000"
-    "WEBSITES_ENABLE_APP_SERVICE_STORAGE"   = "false"
     "DOCKER_ENABLE_CI"                      = "true"
     "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.main.connection_string
     "APPINSIGHTS_INSTRUMENTATIONKEY"        = azurerm_application_insights.main.instrumentation_key
@@ -81,16 +100,13 @@ resource "azurerm_linux_web_app" "backend" {
     "POSTGRES_DATABASE"                   = var.database_name
     "WEBSITE_SKIP_RUNNING_KUDUAGENT"      = "false"
     "WEBSITES_ENABLE_APP_SERVICE_STORAGE" = "false"
+    "WEBSITE_ENABLE_SYNC_UPDATE_SITE"     = "1"
   }
 
   # Logs configuration
   logs {
     detailed_error_messages = true
     failed_request_tracing  = true
-
-    application_logs {
-      file_system_level = "Information"
-    }
 
     http_logs {
       file_system {
@@ -99,7 +115,6 @@ resource "azurerm_linux_web_app" "backend" {
       }
     }
   }
-
   tags = var.common_tags
   lifecycle {
     ignore_changes = [
@@ -107,6 +122,7 @@ resource "azurerm_linux_web_app" "backend" {
       tags
     ]
   }
+  depends_on = [azurerm_linux_web_app.frontend]
 }
 
 
@@ -267,10 +283,6 @@ resource "azurerm_linux_web_app" "psql_sidecar" {
   logs {
     detailed_error_messages = true
     failed_request_tracing  = true
-
-    application_logs {
-      file_system_level = "Information"
-    }
 
     http_logs {
       file_system {

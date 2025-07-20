@@ -72,7 +72,7 @@ resource "azurerm_linux_web_app" "frontend" {
     "APPINSIGHTS_INSTRUMENTATIONKEY"        = azurerm_application_insights.main.instrumentation_key
 
     # Backend URL for frontend to communicate with API
-    "VITE_BACKEND_URL" = "https://${azurerm_linux_web_app.backend.default_hostname}"
+    "VITE_BACKEND_URL" = "https://${var.repo_name}-${var.app_env}-api.azurewebsites.net"
     "LOG_LEVEL"        = "info" # Default log level for frontend
   }
 
@@ -80,10 +80,6 @@ resource "azurerm_linux_web_app" "frontend" {
   logs {
     detailed_error_messages = true
     failed_request_tracing  = true
-
-    application_logs {
-      file_system_level = "Information"
-    }
 
     http_logs {
       file_system {

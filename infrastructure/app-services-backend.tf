@@ -63,17 +63,17 @@ resource "azurerm_linux_web_app" "backend" {
       support_credentials = false
     }
 
-    /*     dynamic "ip_restriction" {
+    dynamic "ip_restriction" {
       for_each = split(",", azurerm_linux_web_app.frontend.possible_outbound_ip_addresses)
       content {
         ip_address                = ip_restriction.value != "" ? "${ip_restriction.value}/32" : null
         virtual_network_subnet_id = ip_restriction.value == "" ? data.azurerm_subnet.app_service.id : null
         service_tag               = ip_restriction.value == "" ? "AppService" : null
         action                    = "Allow"
-        name                      = "AFOutbound${replace(ip_restriction.value, ".", "")}"
+        name                      = "AFInbound${replace(ip_restriction.value, ".", "")}"
         priority                  = 100
       }
-    } */
+    }
     ip_restriction {
       service_tag               = "AzureFrontDoor.Backend"
       ip_address                = null
@@ -135,7 +135,7 @@ resource "azurerm_linux_web_app" "backend" {
       tags
     ]
   }
-  depends_on = [azurerm_linux_web_app.frontend]
+  depends_on = [azurerm_linux_web_app.frontend, azurerm_container_group.flyway]
 }
 
 

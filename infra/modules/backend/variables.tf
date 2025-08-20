@@ -40,7 +40,7 @@ variable "appinsights_instrumentation_key" {
   nullable    = false
 }
 
-variable "backend_autoscale_enabled" {
+variable "enable_backend_autoscale" {
   description = "Whether autoscaling is enabled for the backend App Service plan."
   type        = bool
   default     = true
@@ -84,7 +84,7 @@ variable "db_master_password" {
   nullable    = false
 }
 
-variable "enable_psql_sidecar" {
+variable "enable_cloudbeaver" {
   description = "Whether to enable the CloudBeaver PostgreSQL sidecar."
   type        = bool
   default     = false
@@ -93,12 +93,18 @@ variable "enable_psql_sidecar" {
 variable "frontend_frontdoor_resource_guid" {
   description = "The resource GUID for the Front Door service associated with the frontend App Service."
   type        = string
-  nullable    = false
+  nullable    = true
 }
 
 variable "frontend_possible_outbound_ip_addresses" {
   description = "Possible outbound IP addresses for the frontend App Service."
   type        = string
+  nullable    = false
+}
+
+variable "enable_frontdoor" {
+  description = "Whether Front Door is enabled. Controls backend IP restrictions for Front Door headers."
+  type        = bool
   nullable    = false
 }
 
@@ -146,18 +152,6 @@ variable "repo_name" {
 
 variable "resource_group_name" {
   description = "The name of the resource group in which to create resources."
-  type        = string
-  nullable    = false
-}
-
-variable "user_assigned_identity_client_id" {
-  description = "The client ID of the user-assigned managed identity for the backend."
-  type        = string
-  nullable    = false
-}
-
-variable "user_assigned_identity_id" {
-  description = "The resource ID of the user-assigned managed identity for the backend."
   type        = string
   nullable    = false
 }

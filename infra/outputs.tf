@@ -1,9 +1,4 @@
-output "cloudbeaver_app_service_url" {
-  description = "The URL of the CloudBeaver App Service"
-  value       = module.backend.cloudbeaver_app_service_url != null ? "https://${module.backend.cloudbeaver_app_service_url}" : null
-}
-
-output "cdn_frontdoor_endpoint_url" {
-  description = "The URL of the CDN Front Door endpoint"
+output "frontend_public_url" {
+  description = "The public URL of the frontend (Front Door if enabled else App Service)"
   value       = module.frontend.frontend_url
 }

@@ -20,16 +20,14 @@ resource "azurerm_linux_web_app" "backend" {
   https_only                = true
   virtual_network_subnet_id = var.backend_subnet_id
   identity {
-    type         = "UserAssigned"
-    identity_ids = [var.user_assigned_identity_id]
+    type = "SystemAssigned"
   }
   site_config {
-    always_on                                     = true
-    container_registry_use_managed_identity       = true
-    container_registry_managed_identity_client_id = var.user_assigned_identity_client_id
-    minimum_tls_version                           = "1.3"
-    health_check_path                             = "/api/health"
-    health_check_eviction_time_in_min             = 2
+    always_on                               = true
+    container_registry_use_managed_identity = true
+    minimum_tls_version                     = "1.3"
+    health_check_path                       = "/api/health"
+    health_check_eviction_time_in_min       = 2
     application_stack {
       docker_image_name   = var.api_image
       docker_registry_url = var.container_registry_url
@@ -50,26 +48,33 @@ resource "azurerm_linux_web_app" "backend" {
         priority                  = 100
       }
     }
-    ip_restriction {
-      service_tag               = "AzureFrontDoor.Backend"
-      ip_address                = null
-      virtual_network_subnet_id = null
-      action                    = "Allow"
-      priority                  = 100
-      headers {
-        x_azure_fdid      = [var.frontend_frontdoor_resource_guid]
-        x_fd_health_probe = []
-        x_forwarded_for   = []
-        x_forwarded_host  = []
+    dynamic "ip_restriction" {
+      for_each = var.enable_frontdoor ? [1] : []
+      content {
+        service_tag               = "AzureFrontDoor.Backend"
+        ip_address                = null
+        virtual_network_subnet_id = null
+        action                    = "Allow"
+        priority                  = 100
+        headers {
+          x_azure_fdid      = [var.frontend_frontdoor_resource_guid]
+          x_fd_health_probe = []
+          x_forwarded_for   = []
+          x_forwarded_host  = []
+        }
+        name = "Allow traffic from Front Door"
       }
-      name = "Allow traffic from Front Door"
     }
-    ip_restriction {
-      name        = "DenyAll"
-      action      = "Deny"
-      priority    = 500
-      ip_address  = "0.0.0.0/0"
-      description = "Deny all other traffic"
+    # When Front Door disabled, allow all traffic unless further restrictions desired.
+    dynamic "ip_restriction" {
+      for_each = var.enable_frontdoor ? [1] : []
+      content {
+        name        = "DenyAll"
+        action      = "Deny"
+        priority    = 500
+        ip_address  = "0.0.0.0/0"
+        description = "Deny all other traffic"
+      }
     }
   }
   app_settings = {
@@ -109,7 +114,7 @@ resource "azurerm_monitor_autoscale_setting" "backend_autoscale" {
   resource_group_name = var.resource_group_name
   location            = var.location
   target_resource_id  = azurerm_service_plan.backend.id
-  enabled             = var.backend_autoscale_enabled
+  enabled             = var.enable_backend_autoscale
   profile {
     name = "default"
     capacity {
@@ -158,7 +163,7 @@ resource "azurerm_monitor_autoscale_setting" "backend_autoscale" {
 
 # CloudBeaver Storage Account (optional)
 resource "azurerm_storage_account" "cloudbeaver" {
-  count                           = var.enable_psql_sidecar ? 1 : 0
+  count                           = var.enable_cloudbeaver ? 1 : 0
   name                            = "${replace(var.app_name, "-", "")}cbstorage"
   resource_group_name             = var.resource_group_name
   location                        = var.location
@@ -173,14 +178,14 @@ resource "azurerm_storage_account" "cloudbeaver" {
 }
 
 resource "azurerm_storage_share" "cloudbeaver_workspace" {
-  count              = var.enable_psql_sidecar ? 1 : 0
+  count              = var.enable_cloudbeaver ? 1 : 0
   name               = "${var.app_name}-cb-workspace"
   storage_account_id = azurerm_storage_account.cloudbeaver[0].id
   quota              = 10
 }
 
 resource "azurerm_private_endpoint" "cloudbeaver_storage" {
-  count               = var.enable_psql_sidecar ? 1 : 0
+  count               = var.enable_cloudbeaver ? 1 : 0
   name                = "${var.app_name}-cb-storage-pe"
   location            = var.location
   resource_group_name = var.resource_group_name
@@ -198,7 +203,7 @@ resource "azurerm_private_endpoint" "cloudbeaver_storage" {
 }
 
 resource "random_string" "cloudbeaver_admin_name" {
-  count   = var.enable_psql_sidecar ? 1 : 0
+  count   = var.enable_cloudbeaver ? 1 : 0
   length  = 12
   special = false
   upper   = false
@@ -206,13 +211,13 @@ resource "random_string" "cloudbeaver_admin_name" {
 }
 
 resource "random_password" "cloudbeaver_admin_password" {
-  count   = var.enable_psql_sidecar ? 1 : 0
+  count   = var.enable_cloudbeaver ? 1 : 0
   length  = 16
   special = true
 }
 
 resource "azurerm_linux_web_app" "psql_sidecar" {
-  count                     = var.enable_psql_sidecar ? 1 : 0
+  count                     = var.enable_cloudbeaver ? 1 : 0
   name                      = "${var.repo_name}-${var.app_env}-cloudbeaver"
   resource_group_name       = var.resource_group_name
   location                  = var.location
@@ -220,16 +225,14 @@ resource "azurerm_linux_web_app" "psql_sidecar" {
   virtual_network_subnet_id = var.backend_subnet_id
   https_only                = true
   identity {
-    type         = "UserAssigned"
-    identity_ids = [var.user_assigned_identity_id]
+    type = "SystemAssigned"
   }
   site_config {
-    always_on                                     = true
-    container_registry_use_managed_identity       = true
-    container_registry_managed_identity_client_id = var.user_assigned_identity_client_id
-    minimum_tls_version                           = "1.3"
-    health_check_path                             = "/"
-    health_check_eviction_time_in_min             = 10
+    always_on                               = true
+    container_registry_use_managed_identity = true
+    minimum_tls_version                     = "1.3"
+    health_check_path                       = "/"
+    health_check_eviction_time_in_min       = 10
     application_stack {
       docker_image_name   = "dbeaver/cloudbeaver:latest"
       docker_registry_url = "https://index.docker.io"

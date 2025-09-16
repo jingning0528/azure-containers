@@ -1,0 +1,96 @@
+name: PR
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: write
+  packages: write
+  pull-requests: write
+
+jobs:
+  builds:
+    concurrency:
+      group: builds-${{ github.event.number || 'latest' }}
+      cancel-in-progress: true
+    uses: ./.github/workflows/.builds.yml
+    with:
+      tags: |
+        ${{ github.event.number || 'manual' }}
+        latest
+
+  plan-stack:
+    name: Plan Stack
+    concurrency:
+      group: plan-stack-${{ github.event.number || 'latest' }}
+      cancel-in-progress: false
+    uses: ./.github/workflows/.deploy_stack.yml
+    with:
+      environment_name: tools
+      command: plan
+      tag: ${{ github.event.number || 'latest' }} 
+      app_env: ${{ github.event.number || 'latest' }}
+    secrets: inherit
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - uses: actions/cache@v4
+        name: Cache plugin dir
+        with:
+          path: ~/.tflint.d/plugins
+          key: ubuntu-tflint-${{ hashFiles('.tflint.hcl') }}
+      - uses: terraform-linters/setup-tflint@v5
+        name: Setup TFLint
+        with:
+          tflint_version: v0.52.0
+      - name: Show version
+        run: tflint --version
+      - name: Init TFLint
+        run: tflint --init
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Run TFLint
+        run: tflint -f compact
+
+  deploy-to-tools:
+    name: Deploy to Tools
+    if: (github.event_name == 'workflow_dispatch')
+    concurrency:
+      group: deploy-tools-${{ github.event.number || 'latest' }}
+      cancel-in-progress: false
+    uses: ./.github/workflows/.deploy_stack.yml
+    with:
+      environment_name: tools
+      command: apply
+      tag: manual
+      app_env: tools
+    secrets: inherit
+
+  debug-azure-secrets:
+    name: Debug Azure Secrets and OIDC
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Check if secrets are set
+        run: |
+          echo "AZURE_CLIENT_ID is set: ${{ secrets.AZURE_CLIENT_ID != '' }}"
+          echo "AZURE_TENANT_ID is set: ${{ secrets.AZURE_TENANT_ID != '' }}"
+          echo "AZURE_SUBSCRIPTION_ID is set: ${{ secrets.AZURE_SUBSCRIPTION_ID != '' }}"
+
+      - name: Azure Login via OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Show Azure Account Info
+        run: az account show

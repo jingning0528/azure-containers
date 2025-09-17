@@ -10,7 +10,7 @@ permissions:
 jobs:
   test-login:
     runs-on: ubuntu-latest
-    environment: de
+    environment: dev
     steps:
       - name: Azure Login via OIDC
         uses: azure/login@v2

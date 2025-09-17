@@ -17,6 +17,7 @@ jobs:
   builds:
     name: Builds
     runs-on: ubuntu-24.04
+    environment: dev
     strategy:
       matrix:
         # Only building frontend containers to run PR based e2e tests

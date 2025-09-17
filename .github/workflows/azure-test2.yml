@@ -1,4 +1,4 @@
-name: Azure OIDC Debug
+name: Azure OIDC Test
 
 on:
   workflow_dispatch:
@@ -8,16 +8,9 @@ permissions:
   contents: read
 
 jobs:
-  debug-azure-secrets:
-    name: Debug Azure Secrets and OIDC
+  test-login:
     runs-on: ubuntu-latest
     steps:
-      - name: Check if secrets are set
-        run: |
-          echo "AZURE_CLIENT_ID is set: ${{ secrets.AZURE_CLIENT_ID != '' }}"
-          echo "AZURE_TENANT_ID is set: ${{ secrets.AZURE_TENANT_ID != '' }}"
-          echo "AZURE_SUBSCRIPTION_ID is set: ${{ secrets.AZURE_SUBSCRIPTION_ID != '' }}"
-
       - name: Azure Login via OIDC
         uses: azure/login@v2
         with:
